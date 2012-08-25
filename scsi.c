@@ -49,6 +49,23 @@ printable(
 	return 0;
 }
 
+
+/** Wait 250 ns */
+static inline void
+deskew_delay(void)
+{
+	asm("nop"); asm("nop"); asm("nop"); asm("nop");
+}
+
+/** Wait 400 ns */
+static inline void
+bus_settle_delay(void)
+{
+	asm("nop"); asm("nop"); asm("nop"); asm("nop");
+	asm("nop"); asm("nop"); asm("nop");
+}
+
+
 #define SCSI_BSY	0xB7
 #define SCSI_SEL	0xB4
 #define SCSI_RST	???
@@ -61,6 +78,7 @@ printable(
 #define SCSI_ATN	0xC7
 #define SCSI_DATA_IN	PIND
 #define SCSI_DATA_OUT	PORTD
+#define SCSI_DATA_DDR	DDRD
 
 
 static uint8_t
@@ -77,6 +95,7 @@ scsi_wait_for_selection(void)
 
 	// Master has asserted BSY and SEL; read their address.
 	const uint8_t master_id = ~SCSI_DATA_IN;
+	deskew_delay();
 
 	// Wait for a target id to be selected
 	while (1)
@@ -96,12 +115,11 @@ scsi_wait_for_selection(void)
 
 static inline void
 scsi_drive(
-	const uint8_t port,
-	int value
+	const uint8_t port
 )
 {
 	ddr(port, 1);
-	out(port, value);
+	out(port, 0);
 }
 
 static inline void
@@ -115,23 +133,40 @@ scsi_release(
 
 typedef struct
 {
-	uint8_t op;
+	uint8_t cmd;
 	uint8_t lun;
 	uint8_t res1;
 	uint8_t res2;
 	uint8_t len;
 	uint8_t control;
-} scsi_cdb_t;
+} __attribute__((__packed__))
+scsi_cdb_t;
 
 
-static inline uint8_t
+typedef struct
+{
+	uint8_t cmd;
+	uint8_t lun_lba16;
+	uint8_t lba8;
+	uint8_t lba0;
+	uint8_t len;
+	uint8_t control;
+} __attribute__((__packed__))
+scsi_cdb_read6_t;
+#define SCSI_CMD_READ6 0x08
+
+
+
+static uint8_t
+__attribute__((noinline))
 scsi_read(void)
 {
-	scsi_drive(SCSI_REQ, 0);
+	scsi_drive(SCSI_REQ);
 
 	while (in(SCSI_ACK) != 0)
 		;
 
+	deskew_delay();
 	const uint8_t x = ~SCSI_DATA_IN;
 
 	// Signal that we have read this byte
@@ -139,6 +174,74 @@ scsi_read(void)
 
 	return x;
 }
+
+
+static void
+scsi_write(
+	uint8_t x
+)
+{
+	SCSI_DATA_DDR = 0xFF;
+	SCSI_DATA_OUT = x;
+	deskew_delay();
+
+	scsi_drive(SCSI_REQ);
+
+	// Wait for ACK to be set
+	while (in(SCSI_ACK) != 0)
+		;
+
+	scsi_release(SCSI_REQ);
+	SCSI_DATA_OUT = 0xFF;
+	SCSI_DATA_DDR = 0;
+}
+
+
+
+/** Read a 6-byte command */
+static int
+scsi_read_cdb(
+	scsi_cdb_t * cdb
+)
+{
+	scsi_drive(SCSI_CD);
+	bus_settle_delay();
+
+	uint8_t * buf = (void*) cdb;
+
+	for (int i = 0 ; i < sizeof(*cdb) ; i++)
+		buf[i] = scsi_read();
+
+	scsi_release(SCSI_CD);
+
+	return 0;
+}
+
+
+/** Respond to a 6-byte read command */
+static int
+scsi_cmd_read6(
+	const scsi_cdb_t * const cdb
+)
+{
+	const scsi_cdb_read6_t * const cmd = (const void *) cdb;
+
+	uint32_t lba = 0
+		| (uint32_t)(cmd->lun_lba16 & 0x1F) << 16
+		| (uint32_t)cmd->lba8 << 8
+		| (uint32_t)cmd->lba0 << 0
+		;
+
+	// Respond with all zeros
+	scsi_drive(SCSI_IO);
+
+	scsi_write(0x00);
+
+	scsi_release(SCSI_IO);
+
+	return 0;
+}
+
 
 
 
@@ -184,56 +287,59 @@ int main(void)
 	usb_serial_flush_input();
 
 
-	const uint8_t scsi_id = (1 << 2);
+	const uint8_t scsi_id = (1 << 6);
 	uint8_t buf[256];
 	uint8_t off = 0;
 
 	while (1)
 	{
+		send_str(PSTR("sel: "));
 		const uint8_t sel_id = scsi_wait_for_selection();
-		if (sel_id != scsi_id)
+		buf[off++] = hexdigit(sel_id >> 4);
+		buf[off++] = hexdigit(sel_id >> 0);
+		buf[off++] = ' ';
+
+		if (sel_id == scsi_id)
 		{
-			buf[off++] = hexdigit(sel_id >> 4);
-			buf[off++] = hexdigit(sel_id >> 0);
-			buf[off++] = ' ';
-		} else {
 			// That's me!  Wait for the BSY to go low, then
 			// assert it ourselves.
+			// should check for !SEL as well?
 			while (in(SCSI_BSY) == 0)
 				;
 
-			asm("nop");
-			asm("nop");
-			asm("nop");
-			asm("nop");
+			deskew_delay();
 
 			// Now assert it ourselves
-			scsi_drive(SCSI_BSY, 0);
-			asm("nop"); asm("nop"); asm("nop"); asm("nop");
+			scsi_drive(SCSI_BSY);
 
-			// And signal that we are ready to receive
+			// And wait for SEL to go high
+			while (in(SCSI_SEL) == 0)
+				;
+
+			deskew_delay();
+
+			// Now signal that we are ready to receive
 			// the command from the initiator.
-			scsi_drive(SCSI_CD, 0);
-			asm("nop"); asm("nop"); asm("nop"); asm("nop");
+			scsi_cdb_t cdb;
 
-			// And try to read from the data bus
-			for (int i = 0 ; i < 6 ; i++)
-			{
-				const uint8_t x = scsi_read();
+			scsi_read_cdb(&cdb);
 
-				buf[off++] = hexdigit(x >> 4);
-				buf[off++] = hexdigit(x >> 0);
-				buf[off++] = in(SCSI_IO) ? 'I' : 'O';
-				buf[off++] = in(SCSI_CD) ? 'C' : 'c';
-				buf[off++] = in(SCSI_ACK) ? 'A' : 'a';
-				buf[off++] = in(SCSI_ATN) ? 'A' : 'a';
-				buf[off++] = ' ';
-			}
+			buf[off++] = hexdigit(cdb.cmd >> 4);
+			buf[off++] = hexdigit(cdb.cmd >> 0);
+			buf[off++] = hexdigit(cdb.lun >> 5);
+			buf[off++] = ' ';
+			buf[off++] = hexdigit(cdb.len >> 4);
+			buf[off++] = hexdigit(cdb.len >> 0);
+			buf[off++] = ' ';
+			buf[off++] = hexdigit(cdb.control >> 4);
+			buf[off++] = hexdigit(cdb.control >> 0);
 
+			if (cdb.cmd == SCSI_CMD_READ6)
+				scsi_cmd_read6(&cdb);
 
 			// turn off busy for now
+			scsi_release(SCSI_REQ);
 			scsi_release(SCSI_CD);
-			scsi_release(SCSI_BSY);
 		}
 
 
