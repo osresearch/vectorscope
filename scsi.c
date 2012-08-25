@@ -56,8 +56,9 @@ printable(
 #define SCSI_IO		0xB2
 #define SCSI_MSG	0xB1
 #define SCSI_REQ	0xB0
-#define SCSI_ACK	0xB3
-#define SCSI_ATN	0xE6
+#define SCSI_ACK	0xE6
+#define SCSI_AST	0xB3
+#define SCSI_ATN	0xC7
 #define SCSI_DATA_IN	PIND
 #define SCSI_DATA_OUT	PORTD
 
@@ -90,6 +91,53 @@ scsi_wait_for_selection(void)
 
 		return id ^ master_id;
 	}
+}
+
+
+static inline void
+scsi_drive(
+	const uint8_t port,
+	int value
+)
+{
+	ddr(port, 1);
+	out(port, value);
+}
+
+static inline void
+scsi_release(
+	const uint8_t port
+)
+{
+	out(port, 1);
+	ddr(port, 0);
+}
+
+typedef struct
+{
+	uint8_t op;
+	uint8_t lun;
+	uint8_t res1;
+	uint8_t res2;
+	uint8_t len;
+	uint8_t control;
+} scsi_cdb_t;
+
+
+static inline uint8_t
+scsi_read(void)
+{
+	scsi_drive(SCSI_REQ, 0);
+
+	while (in(SCSI_ACK) != 0)
+		;
+
+	const uint8_t x = ~SCSI_DATA_IN;
+
+	// Signal that we have read this byte
+	scsi_release(SCSI_REQ);
+
+	return x;
 }
 
 
@@ -136,78 +184,67 @@ int main(void)
 	usb_serial_flush_input();
 
 
-	const uint8_t scsi_id = (1 << 4);
+	const uint8_t scsi_id = (1 << 2);
 	uint8_t buf[256];
 	uint8_t off = 0;
 
 	while (1)
 	{
 		const uint8_t sel_id = scsi_wait_for_selection();
-		buf[off++] = hexdigit(sel_id >> 4);
-		buf[off++] = hexdigit(sel_id >> 0);
-		buf[off++] = ' ';
-
-/*
-		uint8_t off = 0;
-		for (int i = 0 ; i < 64 ; i++)
+		if (sel_id != scsi_id)
 		{
-			uint8_t x = ~SCSI_DATA_IN;
-			if (x == 0x81)
-			{
-				break;
-			}
-				ddr(SCSI_BSY, 1);
-
-			buf[off++] = hexdigit(x >> 4);
-			buf[off++] = hexdigit(x >> 0);
+			buf[off++] = hexdigit(sel_id >> 4);
+			buf[off++] = hexdigit(sel_id >> 0);
 			buf[off++] = ' ';
-			if (in(SCSI_BSY) != 0)
-				break;
-			_delay_us(1);
+		} else {
+			// That's me!  Wait for the BSY to go low, then
+			// assert it ourselves.
+			while (in(SCSI_BSY) == 0)
+				;
+
+			asm("nop");
+			asm("nop");
+			asm("nop");
+			asm("nop");
+
+			// Now assert it ourselves
+			scsi_drive(SCSI_BSY, 0);
+			asm("nop"); asm("nop"); asm("nop"); asm("nop");
+
+			// And signal that we are ready to receive
+			// the command from the initiator.
+			scsi_drive(SCSI_CD, 0);
+			asm("nop"); asm("nop"); asm("nop"); asm("nop");
+
+			// And try to read from the data bus
+			for (int i = 0 ; i < 6 ; i++)
+			{
+				const uint8_t x = scsi_read();
+
+				buf[off++] = hexdigit(x >> 4);
+				buf[off++] = hexdigit(x >> 0);
+				buf[off++] = in(SCSI_IO) ? 'I' : 'O';
+				buf[off++] = in(SCSI_CD) ? 'C' : 'c';
+				buf[off++] = in(SCSI_ACK) ? 'A' : 'a';
+				buf[off++] = in(SCSI_ATN) ? 'A' : 'a';
+				buf[off++] = ' ';
+			}
+
+
+			// turn off busy for now
+			scsi_release(SCSI_CD);
+			scsi_release(SCSI_BSY);
 		}
 
-		ddr(SCSI_BSY, 0);
-		uint8_t x;
-
-		x = SCSI_DATA_IN;
-		buf[off++] = hexdigit(x >> 4);
-		buf[off++] = hexdigit(x >> 0);
-		buf[off++] = ' ';
-
-		buf[off++] = 'B';
-		buf[off++] = in(SCSI_BSY) ? '1' : '0';
-		buf[off++] = ' ';
-
-		buf[off++] = 'S';
-		buf[off++] = in(SCSI_SEL) ? '1' : '0';
-		buf[off++] = ' ';
-
-		buf[off++] = 'C';
-		buf[off++] = in(SCSI_CD) ? '1' : '0';
-		buf[off++] = ' ';
-
-		buf[off++] = 'M';
-		buf[off++] = in(SCSI_MSG) ? '1' : '0';
-		buf[off++] = ' ';
-
-		buf[off++] = 'R';
-		buf[off++] = in(SCSI_REQ) ? '1' : '0';
-		buf[off++] = ' ';
-
-		buf[off++] = 'A';
-		buf[off++] = in(SCSI_ACK) ? '1' : '0';
-		buf[off++] = ' ';
-
-		buf[off++] = 'a';
-		buf[off++] = in(SCSI_ATN) ? '1' : '0';
-		buf[off++] = ' ';
-*/
 
 		buf[off++] = '\r';
 		buf[off++] = '\n';
 
 		usb_serial_write(buf, off);
 		off = 0;
+
+		// just in case
+		scsi_release(SCSI_BSY);
 	}
 }
 
