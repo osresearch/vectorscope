@@ -146,11 +146,12 @@ draw_digit(
 )
 {
 	path_t * p = digits[val];
+	const int8_t scale = 2;
 
 	while (1)
 	{
-		uint8_t ox = x + p->x;
-		uint8_t oy = y + p->y;
+		uint8_t ox = x + p->x * scale;
+		uint8_t oy = y + p->y * scale;
 
 		while (1)
 		{
@@ -167,8 +168,8 @@ draw_digit(
 				break;
 			}
 
-			uint8_t nx = x + px;
-			uint8_t ny = y + py;
+			uint8_t nx = x + px * scale;
+			uint8_t ny = y + py * scale;
 
 			line(ox, oy, nx, ny);
 			ox = nx;
@@ -214,21 +215,58 @@ int main(void)
 	uint8_t off = 0;
 	char buf[32];
 
-	uint16_t x = 1;
+	uint16_t t = 0xDEAD;
+
+	uint8_t px = 0;
+	uint8_t py = 0;
+	uint16_t count = 0;
+	
 
 	while (1)
 	{
-		draw_digit(0*32, 64, (x >> 15) & 0x7);
-		draw_digit(1*32, 64, (x >> 12) & 0x7);
-		draw_digit(2*32, 64, (x >> 9) & 0x7);
-		draw_digit(3*32, 64, (x >> 6) & 0x7);
-		draw_digit(4*32, 64, (x >> 3) & 0x7);
-		draw_digit(5*32, 64, (x >> 0) & 0x7);
+		uint16_t x = t / 64;
+		uint8_t s = x % 60; x /= 60;
+		uint8_t m = x % 60; x /= 60;
+		uint8_t h = x % 24;
 
-		x++;
+		if (count++ == 1000)
+		{
+			count = 0;
+			if (px < 64)
+				px++;
+			else
+				px = 0;
+	
+			if (py < 160)
+				py += 3;
+			else
+				py = 0;
+		}
 
-		line_horiz(0,0,255);
-		line_vert(0,0,255);
+		draw_digit( 0+px, 64+py, h / 10);
+		draw_digit(32+px, 64+py, h % 10);
+
+		draw_digit(80+px, 64+py, m / 10);
+		draw_digit(80+32+px, 64+py, m % 10);
+
+		draw_digit(160+px, 64+py, s / 10);
+		draw_digit(160+32+px, 64+py, s % 10);
+
+		draw_digit(0*32+px, py, (t >> 15) & 7);
+		draw_digit(1*32+px, py, (t >> 12) & 7);
+		draw_digit(2*32+px, py, (t >>  9) & 7);
+		draw_digit(3*32+px, py, (t >>  6) & 7);
+		draw_digit(4*32+px, py, (t >>  3) & 7);
+		draw_digit(5*32+px, py, (t >>  0) & 7);
+
+		//PORTB = PORTD = 0;
+
+		t++;
+
+		//line(128, 128, (x & 255), x >> 8);
+
+		//line_horiz(0,0,255);
+		//line_vert(0,0,255);
 	}
 }
 
