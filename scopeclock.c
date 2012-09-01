@@ -47,6 +47,39 @@ printable(
 }
 
 
+static void
+line_vert(
+	uint8_t x0,
+	uint8_t y0,
+	uint8_t w
+)
+{
+	PORTB = x0;
+	PORTD = y0;
+
+	for (uint8_t i = 0 ; i < w ; i++)
+	{
+		PORTD++;
+	}
+}
+
+static void
+line_horiz(
+	uint8_t x0,
+	uint8_t y0,
+	uint8_t h
+)
+{
+	PORTB = x0;
+	PORTD = y0;
+
+	for (uint8_t i = 0 ; i < h ; i++)
+	{
+		PORTB++;
+	}
+}
+
+
 int main(void)
 {
 	// set for 16 MHz clock
@@ -87,46 +120,19 @@ int main(void)
 
 	while (1)
 	{
-#if 0
-		if (dy)
-		{
-			if (PORTB == 0xFF)
-			{
-				dy = 0;
-				if (dx)
-				{
-					if (PORTD == 0xFF)
-						dx = 0;
-					else
-						PORTD += 2;
-				} else {
-					if (PORTD == 0)
-						dx = 1;
-					else
-						PORTD--;
-				}
-			}
-			else
-				PORTB++;
-		} else {
-			if (PORTB == 0)
-				dy = 1;
-			else
-				PORTB--;
-		}
-#endif
-		PORTB += 1;
-		PORTD += 1;
+		cli();
+		line_vert(64,64,128);
+		line_vert(128+64,64,128);
+		line_horiz(64,64,128);
+		line_horiz(64,128+64,128);
 
+		line_vert(64+30,64+30,128);
+		line_vert(128+64+30,64+30,128);
+		line_horiz(64+30,64+30,128);
+		line_horiz(64+30,128+64+30,128);
 
-		buf[off++] = hexdigit(PORTB >> 4);
-		buf[off++] = hexdigit(PORTB >> 0);
-		buf[off++] = '\r';
-		buf[off++] = '\n';
-
-		usb_serial_write(buf, off);
-		off = 0;
-		_delay_ms(1);
+		PORTD = PORTB = 0;
+		sei();
 	}
 }
 
