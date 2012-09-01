@@ -146,24 +146,34 @@ draw_digit(
 )
 {
 	path_t * p = digits[val];
-	uint8_t ox = x;
-	uint8_t oy = y;
 
 	while (1)
 	{
-		int8_t px = p->x;
-		int8_t py = p->y;
-		if (px == 0 && py == 0)
-			break;
+		uint8_t ox = x + p->x;
+		uint8_t oy = y + p->y;
 
-		uint8_t nx = x + px;
-		uint8_t ny = y + py;
+		while (1)
+		{
+			p++;
+			int8_t px = p->x;
+			int8_t py = p->y;
 
-		if (px != -1 && py != -1)
+			if (px == 0 && py == 0)
+				return;
+
+			if (px == -1 && py == -1)
+			{
+				p++;
+				break;
+			}
+
+			uint8_t nx = x + px;
+			uint8_t ny = y + py;
+
 			line(ox, oy, nx, ny);
-		ox = nx;
-		oy = ny;
-		p++;
+			ox = nx;
+			oy = ny;
+		}
 	}
 }
 
