@@ -80,6 +80,63 @@ line_horiz(
 }
 
 
+static void
+line(
+	uint8_t x0,
+	uint8_t y0,
+	uint8_t x1,
+	uint8_t y1
+)
+{
+	int dx;
+	int dy;
+	int sx;
+	int sy;
+
+	if (x0 < x1)
+	{
+		dx = x1 - x0;
+		sx = 1;
+	} else {
+		dx = x0 - x1;
+		sx = -1;
+	}
+
+	if (y0 < y1)
+	{
+		dy = y1 - y0;
+		sy = 1;
+	} else {
+		dy = y0 - y1;
+		sy = -1;
+	}
+
+	int err = dx - dy;
+
+	while (1)
+	{
+		PORTD = x0;
+		PORTB = y0;
+
+		if (x0 == x1 && y0 == y1)
+			break;
+
+		int e2 = 2 * err;
+
+		if (e2 > -dy)
+		{
+			err = err - dy;
+			x0 += sx;
+		}
+		if (e2 < dx)
+		{
+			err = err + dx;
+			y0 += sy;
+		}
+	}
+}
+
+
 int main(void)
 {
 	// set for 16 MHz clock
@@ -115,24 +172,22 @@ int main(void)
 	uint8_t off = 0;
 	char buf[32];
 
-	uint8_t dx = 1;
-	uint8_t dy = 1;
+	uint8_t x = 1;
+	uint8_t dir = 0;
 
 	while (1)
 	{
-		cli();
-		line_vert(64,64,128);
-		line_vert(128+64,64,128);
-		line_horiz(64,64,128);
-		line_horiz(64,128+64,128);
+		if (dir)
+			line(0,0,200,x);
+		else
+			line(255,255,x,0);
 
-		line_vert(64+30,64+30,128);
-		line_vert(128+64+30,64+30,128);
-		line_horiz(64+30,64+30,128);
-		line_horiz(64+30,128+64+30,128);
+		if (++x == 0)
+			dir = !dir;
 
-		PORTD = PORTB = 0;
-		sei();
+		line_horiz(0,0,255);
+		line_vert(0,0,255);
+
 	}
 }
 
