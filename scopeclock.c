@@ -13,6 +13,61 @@
 #include "bits.h"
 #include "hershey.h"
 
+
+/** Track the number of miliseconds, sec, min and hour since midnight */
+static volatile uint16_t now_ms;
+static volatile uint8_t now_sec;
+static volatile uint8_t now_min;
+static volatile uint8_t now_hour;
+
+
+// Define CONFIG_HZ_IRQ to enable a timer interrupt rather than
+// polling the interrupt flag.
+#define CONFIG_HZ_IRQ
+
+/** 1000-hz overflow */
+#ifdef CONFIG_HZ_IRQ
+ISR(TIMER0_COMPA_vect)
+#else
+static void
+now_update(void)
+#endif
+{
+	if (now_ms < 999)
+	{
+		now_ms += 1;
+		return;
+	}
+
+	now_ms = 0;
+
+	if (now_sec < 59)
+	{
+		now_sec++;
+		return;
+	}
+
+	now_sec = 0;
+
+	if (now_min < 59)
+	{
+		now_min++;
+		return;
+	}
+
+	now_min = 0;
+
+	if (now_hour < 23)
+	{
+		now_hour++;
+		return;
+	}
+
+	now_hour = 0;
+}
+
+
+
 void send_str(const char *s);
 uint8_t recv_str(char *buf, uint8_t size);
 void parse_and_execute_command(const char *buf, uint8_t num);
@@ -145,7 +200,7 @@ draw_digit(
 	uint8_t val
 )
 {
-	path_t * p = digits[val];
+	const path_t * p = digits[val];
 	const int8_t scale = 2;
 
 	while (1)
@@ -215,53 +270,81 @@ int main(void)
 	uint8_t off = 0;
 	char buf[32];
 
-	uint16_t t = 0xDEAD;
-
 	uint8_t px = 0;
 	uint8_t py = 0;
-	uint16_t count = 0;
+	uint8_t count = 0;
+
+	// Configure timer0 to overflow every 1 ms
+	// CTC mode (clear counter at OCR0A, signal interrupt)
+	TCCR0A = 0
+		| (1 << WGM01)
+		| (0 << WGM00)
+		;
+
+	TCCR0B = 0
+		| (0 << WGM02)
+		| (0 << CS02)
+		| (1 << CS01)
+		| (1 << CS00)
+		;
+
+
+	// Clk/256 @ 16 MHz => 250 ticks == 10 ms
+	OCR0A = 250;
+
+#ifdef CONFIG_HZ_IRQ
+	sbi(TIMSK0, OCIE0A);
+	sei();
+#endif
+
 	
 
 	while (1)
 	{
-		uint16_t x = t / 64;
-		uint8_t s = x % 60; x /= 60;
-		uint8_t m = x % 60; x /= 60;
-		uint8_t h = x % 24;
+#ifndef CONFIG_HZ_IRQ
+		// If the interrupt is not in use, check the overflow bit
+		if (bit_is_set(TIFR0, OCF0A))
+		{
+			sbi(TIFR0, OCF0A);
+			now_update();
+		}
+#endif
 
-		if (count++ == 1000)
+		if (count++ == 100)
 		{
 			count = 0;
-			if (px < 64)
+			if (px < 30)
 				px++;
 			else
 				px = 0;
 	
-			if (py < 160)
+			if (py < 120)
 				py += 3;
 			else
 				py = 0;
 		}
 
+		uint8_t h = now_hour;
 		draw_digit( 0+px, 64+py, h / 10);
 		draw_digit(32+px, 64+py, h % 10);
 
+		uint8_t m = now_min;
 		draw_digit(80+px, 64+py, m / 10);
 		draw_digit(80+32+px, 64+py, m % 10);
 
+		uint8_t s = now_sec;
 		draw_digit(160+px, 64+py, s / 10);
 		draw_digit(160+32+px, 64+py, s % 10);
 
-		draw_digit(0*32+px, py, (t >> 15) & 7);
-		draw_digit(1*32+px, py, (t >> 12) & 7);
-		draw_digit(2*32+px, py, (t >>  9) & 7);
-		draw_digit(3*32+px, py, (t >>  6) & 7);
-		draw_digit(4*32+px, py, (t >>  3) & 7);
-		draw_digit(5*32+px, py, (t >>  0) & 7);
+/*
+		draw_digit(0*32+px, py, (now_ms / 100) % 10);
+		draw_digit(1*32+px, py, (now_ms / 10) % 10);
+		draw_digit(2*32+px, py, (now_ms / 1) % 10);
 
-		//PORTB = PORTD = 0;
-
-		t++;
+		draw_digit(4*32+px, py, (TCNT0 / 100) % 10);
+		draw_digit(5*32+px, py, (TCNT0 / 10) % 10);
+		draw_digit(6*32+px, py, (TCNT0 / 1) % 10);
+*/
 
 		//line(128, 128, (x & 255), x >> 8);
 
