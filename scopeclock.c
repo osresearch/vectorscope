@@ -205,8 +205,8 @@ draw_digit(
 
 	while (1)
 	{
-		uint8_t ox = x + p->x * scale;
-		uint8_t oy = y + p->y * scale;
+		uint8_t ox = x + p->x / scale;
+		uint8_t oy = y + p->y / scale;
 
 		while (1)
 		{
@@ -223,8 +223,8 @@ draw_digit(
 				break;
 			}
 
-			uint8_t nx = x + px * scale;
-			uint8_t ny = y + py * scale;
+			uint8_t nx = x + px / scale;
+			uint8_t ny = y + py / scale;
 
 			line(ox, oy, nx, ny);
 			ox = nx;
@@ -232,6 +232,33 @@ draw_digit(
 		}
 	}
 }
+
+static const uint8_t hour_pos[][2] = {
+{ 128,228 },
+{ 153,224 },
+{ 177,214 },
+{ 198,198 },
+{ 214,178 },
+{ 224,153 },
+{ 227,128 },
+{ 224,102 },
+{ 214,78 },
+{ 198,57 },
+{ 178,41 },
+{ 154,31 },
+{ 128,28 },
+{ 102,31 },
+{ 78,41 },
+{ 57,57 },
+{ 41,77 },
+{ 31,101 },
+{ 28,127 },
+{ 31,153 },
+{ 41,177 },
+{ 57,198 },
+{ 77,214 },
+{ 101,224 },
+};
 
 
 
@@ -324,7 +351,18 @@ int main(void)
 				py = 0;
 		}
 
+
+		for (uint8_t h = 0 ; h < 24 ; h++)
+		{
+			uint8_t x = hour_pos[h][0];
+			uint8_t y = hour_pos[h][1];
+			draw_digit(x-8, y-4, h / 10);
+			draw_digit(x+2, y-4, h % 10);
+		}
+
+		// Draw the hour hand
 		uint8_t h = now_hour;
+
 		draw_digit( 0+px, 64+py, h / 10);
 		draw_digit(32+px, 64+py, h % 10);
 
@@ -335,6 +373,8 @@ int main(void)
 		uint8_t s = now_sec;
 		draw_digit(160+px, 64+py, s / 10);
 		draw_digit(160+32+px, 64+py, s % 10);
+
+		line(128, 128, hour_pos[s/3][0], hour_pos[s/3][1]);
 
 /*
 		draw_digit(0*32+px, py, (now_ms / 100) % 10);
@@ -348,8 +388,10 @@ int main(void)
 
 		//line(128, 128, (x & 255), x >> 8);
 
-		//line_horiz(0,0,255);
-		//line_vert(0,0,255);
+		line_horiz(0,0,255);
+		line_horiz(0,255,255);
+		line_vert(0,0,255);
+		line_vert(255,0,255);
 	}
 }
 
