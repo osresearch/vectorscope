@@ -48,6 +48,7 @@ TARGET = scopeclock
 SRC =	$(TARGET).c \
 	usb_serial.c \
 	bits.c \
+	hershey.c \
 
 
 # MCU name, you MUST set this to match the board you are using

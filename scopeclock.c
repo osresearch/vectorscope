@@ -11,6 +11,7 @@
 #include <util/delay.h>
 #include "usb_serial.h"
 #include "bits.h"
+#include "hershey.h"
 
 void send_str(const char *s);
 uint8_t recv_str(char *buf, uint8_t size);
@@ -115,8 +116,8 @@ line(
 
 	while (1)
 	{
-		PORTD = x0;
-		PORTB = y0;
+		PORTB = x0;
+		PORTD = y0;
 
 		if (x0 == x1 && y0 == y1)
 			break;
@@ -135,6 +136,37 @@ line(
 		}
 	}
 }
+
+
+static void
+draw_digit(
+	uint8_t x,
+	uint8_t y,
+	uint8_t val
+)
+{
+	path_t * p = digits[val];
+	uint8_t ox = x;
+	uint8_t oy = y;
+
+	while (1)
+	{
+		int8_t px = p->x;
+		int8_t py = p->y;
+		if (px == 0 && py == 0)
+			break;
+
+		uint8_t nx = x + px;
+		uint8_t ny = y + py;
+
+		if (px != -1 && py != -1)
+			line(ox, oy, nx, ny);
+		ox = nx;
+		oy = ny;
+		p++;
+	}
+}
+
 
 
 int main(void)
@@ -172,22 +204,21 @@ int main(void)
 	uint8_t off = 0;
 	char buf[32];
 
-	uint8_t x = 1;
-	uint8_t dir = 0;
+	uint16_t x = 1;
 
 	while (1)
 	{
-		if (dir)
-			line(0,0,200,x);
-		else
-			line(255,255,x,0);
+		draw_digit(0*32, 64, (x >> 15) & 0x7);
+		draw_digit(1*32, 64, (x >> 12) & 0x7);
+		draw_digit(2*32, 64, (x >> 9) & 0x7);
+		draw_digit(3*32, 64, (x >> 6) & 0x7);
+		draw_digit(4*32, 64, (x >> 3) & 0x7);
+		draw_digit(5*32, 64, (x >> 0) & 0x7);
 
-		if (++x == 0)
-			dir = !dir;
+		x++;
 
 		line_horiz(0,0,255);
 		line_vert(0,0,255);
-
 	}
 }
 
