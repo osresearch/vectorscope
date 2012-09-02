@@ -95,7 +95,7 @@ draw_image(
 	} while (x != 0);
 }
 
-#include "images/samson.xbm"
+#include "images/adafruit.xbm"
 
 
 static void
