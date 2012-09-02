@@ -16,10 +16,12 @@
 
 
 /** Track the number of miliseconds, sec, min and hour since midnight */
-static volatile uint16_t now_ms;
+static volatile uint8_t now_hour = 21;
+static volatile uint8_t now_min = 15;
 static volatile uint8_t now_sec = 30;
-static volatile uint8_t now_min = 19;
-static volatile uint8_t now_hour = 20;
+static volatile uint16_t now_ms;
+static volatile uint16_t fps;
+static volatile uint16_t last_fps;
 
 
 // Define CONFIG_HZ_IRQ to enable a timer interrupt rather than
@@ -41,6 +43,8 @@ now_update(void)
 	}
 
 	now_ms = 0;
+	last_fps = fps;
+	fps = 0;
 
 	if (now_sec < 59)
 	{
@@ -145,6 +149,7 @@ line(
 	uint8_t y1
 )
 {
+#if 1
 	int dx;
 	int dy;
 	int sx;
@@ -179,7 +184,6 @@ line(
 			break;
 
 		int e2 = 2 * err;
-
 		if (e2 > -dy)
 		{
 			err = err - dy;
@@ -191,6 +195,49 @@ line(
 			y0 += sy;
 		}
 	}
+#else
+	uint8_t dx;
+	uint8_t dy;
+	int8_t sx;
+	int8_t sy;
+
+	if (x0 < x1)
+	{
+		dx = x1 - x0;
+		sx = 1;
+	} else {
+		dx = x0 - x1;
+		sx = -1;
+	}
+
+	if (y0 < y1)
+	{
+		dy = y1 - y0;
+		sy = 1;
+	} else {
+		dy = y0 - y1;
+		sy = -1;
+	}
+
+	if (dx > dy)
+	{
+		while (x0 != x1)
+		{
+			PORTB = x0;
+			PORTD = y0;
+			x0 += sx;
+			y0 += sy;
+		}
+	} else {
+		while (y0 != y1)
+		{
+			PORTB = x0;
+			PORTD = y0;
+			x0 += sx;
+			y0 += sy;
+		}
+	}
+#endif
 }
 
 
@@ -323,6 +370,14 @@ int main(void)
 
 	while (1)
 	{
+		cli();
+		fps++;
+		uint16_t old_fps = last_fps;
+		sei();
+		draw_digit(0, 0, (old_fps / 100) % 10);
+		draw_digit(8, 0, (old_fps / 10) % 10);
+		draw_digit(16, 0, (old_fps / 1) % 10);
+
 #ifndef CONFIG_HZ_IRQ
 		// If the interrupt is not in use, check the overflow bit
 		if (bit_is_set(TIFR0, OCF0A))
@@ -359,9 +414,12 @@ int main(void)
 		}
 
 		// Draw the hour hand
+		cli();
+		uint16_t ms = now_ms;
 		uint8_t h = now_hour;
 		uint8_t m = now_min;
 		uint8_t s = now_sec;
+		sei();
 
 		const uint8_t cx = 72;
 		const uint8_t cy = 64;
@@ -396,7 +454,7 @@ int main(void)
 		// seconds to "degrees" = 
 		{
 			uint16_t s2 = s;
-			s2 = (s2 * 1092 + now_ms) / 256;
+			s2 = (s2 * 1092 + ms) / 256;
 			uint8_t sx = sin_lookup(s2) * 6 / 8 + 128;
 			uint8_t sy = cos_lookup(s2) * 6 / 8 + 128;
 			line(128, 128, sx, sy);
