@@ -4,7 +4,7 @@
 #include "clock.h"
 
 volatile uint8_t now_hour = 15;
-volatile uint8_t now_min = 0;
+volatile uint8_t now_min = 53;
 volatile uint8_t now_sec = 0;
 volatile uint16_t now_ms;
 volatile uint16_t now; // ms since boot

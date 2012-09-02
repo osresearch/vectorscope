@@ -54,8 +54,79 @@ printable(
 
 
 static void
+draw_image(
+	const uint8_t * image
+)
+{
+	uint8_t x = 0;
+
+	do {
+		PORTD = -x;
+
+		// Moving in one direction
+		for (uint8_t y = 0 ; y < 32; y += 1)
+		{
+			uint8_t v = pgm_read_byte(image++);
+			for (uint8_t z = 0 ; z < 8 ; z++)
+			{
+				if ((v & 1) == 0)
+					PORTB = y*8 + z;
+				v >>= 1;
+			}
+		}
+
+		PORTD = -(x+1);
+		image += 32;
+
+		// And back in the other direction
+		for (uint8_t y = 0 ; y < 32; y += 1)
+		{
+			uint8_t v = pgm_read_byte(--image);
+			for (uint8_t z = 0 ; z < 8 ; z++)
+			{
+				if ((v & 1) == 0)
+					PORTB = (31 - y) * 8 + z;
+				v >>= 1;
+			}
+		}
+
+		image += 32;
+		x += 2;
+	} while (x != 0);
+}
+
+#include "images/samson.xbm"
+
+
+static void
+draw_hms(void)
+{
+	cli();
+	uint16_t ms = now_ms;
+	uint8_t h = now_hour;
+	uint8_t m = now_min;
+	uint8_t s = now_sec;
+	sei();
+
+	const uint8_t cx = 0;
+	const uint8_t cy = 0;
+
+	draw_digit_big( 0+cx, cy, h / 10);
+	draw_digit_big(16+cx, cy, h % 10);
+	draw_digit_big(40+cx, cy, m / 10);
+	draw_digit_big(56+cx, cy, m % 10);
+	draw_digit_big(80+cx, cy, s / 10);
+	draw_digit_big(96+cx, cy, s % 10);
+}
+
+
+static void
 analog_clock(void)
 {
+	draw_image(image_bits);
+	draw_hms();
+	return;
+
 	// Draw all the digits around the outside
 	for (uint8_t h = 0 ; h < 24 ; h++)
 	{
@@ -121,6 +192,7 @@ analog_clock(void)
 	line_vert(255,0,255);
 */
 }
+
 
 int main(void)
 {
