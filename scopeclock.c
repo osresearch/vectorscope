@@ -13,63 +13,8 @@
 #include "bits.h"
 #include "sin_table.h"
 #include "vector.h"
+#include "clock.h"
 
-
-/** Track the number of miliseconds, sec, min and hour since midnight */
-static volatile uint8_t now_hour = 21;
-static volatile uint8_t now_min = 15;
-static volatile uint8_t now_sec = 30;
-static volatile uint16_t now_ms;
-static volatile uint16_t fps;
-static volatile uint16_t last_fps;
-
-
-// Define CONFIG_HZ_IRQ to enable a timer interrupt rather than
-// polling the interrupt flag.
-#define CONFIG_HZ_IRQ
-
-/** 1000-hz overflow */
-#ifdef CONFIG_HZ_IRQ
-ISR(TIMER0_COMPA_vect)
-#else
-static void
-now_update(void)
-#endif
-{
-	if (now_ms < 999)
-	{
-		now_ms += 1;
-		return;
-	}
-
-	now_ms = 0;
-	last_fps = fps;
-	fps = 0;
-
-	if (now_sec < 59)
-	{
-		now_sec++;
-		return;
-	}
-
-	now_sec = 0;
-
-	if (now_min < 59)
-	{
-		now_min++;
-		return;
-	}
-
-	now_min = 0;
-
-	if (now_hour < 23)
-	{
-		now_hour++;
-		return;
-	}
-
-	now_hour = 0;
-}
 
 
 
@@ -147,50 +92,10 @@ int main(void)
 	uint8_t py = 0;
 	uint8_t count = 0;
 
-	// Configure timer0 to overflow every 1 ms
-	// CTC mode (clear counter at OCR0A, signal interrupt)
-	TCCR0A = 0
-		| (1 << WGM01)
-		| (0 << WGM00)
-		;
-
-	TCCR0B = 0
-		| (0 << WGM02)
-		| (0 << CS02)
-		| (1 << CS01)
-		| (1 << CS00)
-		;
-
-
-	// Clk/256 @ 16 MHz => 250 ticks == 10 ms
-	OCR0A = 250;
-
-#ifdef CONFIG_HZ_IRQ
-	sbi(TIMSK0, OCIE0A);
-	sei();
-#endif
-
-	
+	clock_init();
 
 	while (1)
 	{
-		cli();
-		fps++;
-		uint16_t old_fps = last_fps;
-		sei();
-		draw_digit(0, 0, (old_fps / 100) % 10);
-		draw_digit(8, 0, (old_fps / 10) % 10);
-		draw_digit(16, 0, (old_fps / 1) % 10);
-
-#ifndef CONFIG_HZ_IRQ
-		// If the interrupt is not in use, check the overflow bit
-		if (bit_is_set(TIFR0, OCF0A))
-		{
-			sbi(TIFR0, OCF0A);
-			now_update();
-		}
-#endif
-
 		if (count++ == 100)
 		{
 			count = 0;

@@ -51,6 +51,7 @@ SRC =	$(TARGET).c \
 	hershey.c \
 	sin_table.c \
 	vector.c \
+	clock.c \
 
 
 # MCU name, you MUST set this to match the board you are using
