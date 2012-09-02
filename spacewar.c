@@ -1,6 +1,6 @@
 /**
  * \file
- * Spacewar like gravity game for an oscilloscope
+ * Planet orbit simulator.
  */
 
 #include <avr/io.h>
@@ -13,6 +13,10 @@
 // To save cpu time, the sun is at (0,0)
 #define SUN_X 0
 #define SUN_Y 0
+#define SUN_MASS 1.989e30 // kg
+
+#define GRAVITY 6.67384e-11 // N m / kg^2
+#define ONE_AU 149e9 // m
 
 typedef struct
 {
@@ -20,11 +24,46 @@ typedef struct
 	float y;
 	float vx;
 	float vy;
-	float heading;
-} ship_t;
+	float mass;
+} planet_t;
 
-#define SHIP_COUNT 3
-static ship_t ships[SHIP_COUNT];
+
+#define PLANET_COUNT 4
+static planet_t planets[] =
+{
+	{
+		// Mercury
+		.mass = 328.5e21, // kg
+		.x = 0,
+		.y = 46.001e9, // m
+		.vx = 47870, // m/s
+		.vy = 0,
+	},
+	{
+		// Venus
+		.mass = 4.868e24, // kg
+		.x = 0,
+		.y = 107.477e9, // m
+		.vx = 35020, // m/s
+		.vy = 0,
+	},
+	{
+		// Earth
+		.mass = 5.974e24,
+		.x = 0,
+		.y = 147.098e9, // m
+		.vx = 29780, // m/s
+		.vy = 0,
+	},
+	{
+		// Mars
+		.mass = 6.419e23,
+		.x = 0,
+		.y = 206.669e9, // m
+		.vx = 24007, // m/s
+		.vy = 0,
+	},
+};
 
 
 /** Precomputed inverse square law gravity forces:
@@ -65,6 +104,12 @@ static const uint8_t gravity_table[] = {
 45,
 };
 
+
+/** Compute G m1*m2 / r^2 for a planet.
+ *
+ * Distances are in m, mass in kg.
+ * Return is in m/s^2
+ */
 static float
 gravity(
 	float dx,
@@ -84,32 +129,25 @@ gravity(
 	if (dx == 0 && dy == 0)
 		return 0;
 
-	float delta = dx * dx + dy * dy;
-	return 1000 / sqrt(delta);
+	// dx,dy are in m
+	// mass is in kg
+	float r_squared = (dx * dx + dy * dy);
+	return GRAVITY * SUN_MASS / r_squared;
 #endif
 }
 
 
 void
-ship_update(
-	ship_t * s
+planet_update(
+	planet_t * s
 )
 {
 	float dx = SUN_X - s->x;
 	float dy = SUN_X - s->y;
 	float g = gravity(dx, dy);
-	if (g == 0)
-	{
-		// ship is dead; reset it somewhere random
-		s->vx = s->vy = 0;
-		s->x = TCNT1;
-		s->y = ~TCNT1;
-		return;
-	}
-
 
 	// Project the gravity in the direction of the sun.
-	const float dt = 1;
+	const float dt = 3600 * 24; // one day
 	float theta = atan2(dy, dx);
 	s->vx += g * cos(theta) * dt;
 	s->vy += g * sin(theta) * dt;
@@ -117,6 +155,7 @@ ship_update(
 	s->x += s->vx * dt;
 	s->y += s->vy * dt;
 
+/*
 	if (s->x > 32768)
 		s->x = s->x - 65536.0;
 	if (s->x < -32768)
@@ -125,17 +164,19 @@ ship_update(
 		s->y = s->y - 65536.0;
 	if (s->y < -32768)
 		s->y = 65536.0 - s->y;
+*/
 }
 
 
 void
-ship_draw(
-	ship_t * s,
+planet_draw(
+	planet_t * s,
 	int i
 )
 {
-	uint8_t x = ((uint16_t) s->x + 0x8000) / 256;
-	uint8_t y = ((uint16_t) s->y + 0x8000) / 256;
+	// Scale x and y so that 2 au == 128
+	uint8_t x = (s->x / ONE_AU) * 64 + 128;
+	uint8_t y = (s->y / ONE_AU) * 64 + 128;
 
 	//line(x, y, x+s->vx*100, y+s->vy*100);
 	draw_digit(x, y, i);
@@ -146,23 +187,14 @@ ship_draw(
 
 
 void
-ship_loop(void)
+planet_loop(void)
 {
-	for (int i = 0 ; i < SHIP_COUNT ; i++)
-	{
-		ship_t * const ship = &ships[i];
-		ship->x = 0;
-		ship->y = i * 4000 + 12000;
-		ship->vx = i * 20 + 0;
-		ship->vy = 0;
-	}
-
 	while (1)
 	{
-		for (int i = 0 ; i < SHIP_COUNT ; i++)
+		for (int i = 0 ; i < PLANET_COUNT ; i++)
 		{
-			ship_draw(&ships[i], i);
-			ship_update(&ships[i]);
+			planet_draw(&planets[i], i+1);
+			planet_update(&planets[i]);
 		}
 
 		PORTB = PORTD = 128;

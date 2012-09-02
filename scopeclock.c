@@ -94,7 +94,7 @@ int main(void)
 
 	clock_init();
 
-	ship_loop();
+	planet_loop();
 
 	while (1)
 	{
