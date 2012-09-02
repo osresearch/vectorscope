@@ -49,6 +49,7 @@ SRC =	$(TARGET).c \
 	usb_serial.c \
 	bits.c \
 	hershey.c \
+	sin_table.c \
 
 
 # MCU name, you MUST set this to match the board you are using

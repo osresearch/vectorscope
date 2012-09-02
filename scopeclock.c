@@ -12,13 +12,14 @@
 #include "usb_serial.h"
 #include "bits.h"
 #include "hershey.h"
+#include "sin_table.h"
 
 
 /** Track the number of miliseconds, sec, min and hour since midnight */
 static volatile uint16_t now_ms;
-static volatile uint8_t now_sec;
-static volatile uint8_t now_min;
-static volatile uint8_t now_hour;
+static volatile uint8_t now_sec = 30;
+static volatile uint8_t now_min = 19;
+static volatile uint8_t now_hour = 20;
 
 
 // Define CONFIG_HZ_IRQ to enable a timer interrupt rather than
@@ -193,15 +194,15 @@ line(
 }
 
 
-static void
-draw_digit(
+static inline void
+_draw_digit(
 	uint8_t x,
 	uint8_t y,
-	uint8_t val
+	uint8_t val,
+	const uint8_t scale
 )
 {
 	const path_t * p = digits[val];
-	const int8_t scale = 2;
 
 	while (1)
 	{
@@ -233,33 +234,27 @@ draw_digit(
 	}
 }
 
-static const uint8_t hour_pos[][2] = {
-{ 128,228 },
-{ 153,224 },
-{ 177,214 },
-{ 198,198 },
-{ 214,178 },
-{ 224,153 },
-{ 227,128 },
-{ 224,102 },
-{ 214,78 },
-{ 198,57 },
-{ 178,41 },
-{ 154,31 },
-{ 128,28 },
-{ 102,31 },
-{ 78,41 },
-{ 57,57 },
-{ 41,77 },
-{ 31,101 },
-{ 28,127 },
-{ 31,153 },
-{ 41,177 },
-{ 57,198 },
-{ 77,214 },
-{ 101,224 },
-};
 
+static void
+draw_digit_big(
+	uint8_t x,
+	uint8_t y,
+	uint8_t val
+)
+{
+	_draw_digit(x, y, val, 1);
+}
+
+
+static void
+draw_digit(
+	uint8_t x,
+	uint8_t y,
+	uint8_t val
+)
+{
+	_draw_digit(x, y, val, 2);
+}
 
 
 int main(void)
@@ -352,46 +347,67 @@ int main(void)
 		}
 
 
+		// Draw all the digits around the outside
 		for (uint8_t h = 0 ; h < 24 ; h++)
 		{
-			uint8_t x = hour_pos[h][0];
-			uint8_t y = hour_pos[h][1];
+			uint16_t h2 = h;
+			h2 = (h2 * 682) / 64;
+			uint8_t x = sin_lookup(h2) * 7 / 8 + 128;
+			uint8_t y = cos_lookup(h2) * 7 / 8 + 128;
 			draw_digit(x-8, y-4, h / 10);
 			draw_digit(x+2, y-4, h % 10);
 		}
 
 		// Draw the hour hand
 		uint8_t h = now_hour;
-
-		draw_digit( 0+px, 64+py, h / 10);
-		draw_digit(32+px, 64+py, h % 10);
-
 		uint8_t m = now_min;
-		draw_digit(80+px, 64+py, m / 10);
-		draw_digit(80+32+px, 64+py, m % 10);
-
 		uint8_t s = now_sec;
-		draw_digit(160+px, 64+py, s / 10);
-		draw_digit(160+32+px, 64+py, s % 10);
 
-		line(128, 128, hour_pos[s/3][0], hour_pos[s/3][1]);
+		const uint8_t cx = 72;
+		const uint8_t cy = 64;
+
+		draw_digit_big( 0+cx, cy, h / 10);
+		draw_digit_big(16+cx, cy, h % 10);
+		draw_digit_big(40+cx, cy, m / 10);
+		draw_digit_big(56+cx, cy, m % 10);
+		draw_digit_big(80+cx, cy, s / 10);
+		draw_digit_big(96+cx, cy, s % 10);
+
+		{
+			uint16_t h2 = h;
+			h2 = (h2 * 682 + m*11) / 64;
+			uint8_t hx = sin_lookup(h2) * 3 / 8 + 128;
+			uint8_t hy = cos_lookup(h2) * 3 / 8 + 128;
+			line(128, 128, hx, hy);
+		}
+
+
+		{
+			uint16_t m2 = m;
+			m2 = (m2 * 273 + s*4) / 64;
+			uint8_t mx = sin_lookup(m2) * 5 / 8 + 128;
+			uint8_t my = cos_lookup(m2) * 5 / 8 + 128;
+			line(128, 128, mx, my);
+			line_horiz(mx - 5, my, 10);
+			line_vert(mx, my - 5, 10);
+		}
+
+
+		// seconds to "degrees" = 
+		{
+			uint16_t s2 = s;
+			s2 = (s2 * 1092 + now_ms) / 256;
+			uint8_t sx = sin_lookup(s2) * 6 / 8 + 128;
+			uint8_t sy = cos_lookup(s2) * 6 / 8 + 128;
+			line(128, 128, sx, sy);
+		}
 
 /*
-		draw_digit(0*32+px, py, (now_ms / 100) % 10);
-		draw_digit(1*32+px, py, (now_ms / 10) % 10);
-		draw_digit(2*32+px, py, (now_ms / 1) % 10);
-
-		draw_digit(4*32+px, py, (TCNT0 / 100) % 10);
-		draw_digit(5*32+px, py, (TCNT0 / 10) % 10);
-		draw_digit(6*32+px, py, (TCNT0 / 1) % 10);
-*/
-
-		//line(128, 128, (x & 255), x >> 8);
-
 		line_horiz(0,0,255);
 		line_horiz(0,255,255);
 		line_vert(0,0,255);
 		line_vert(255,0,255);
+*/
 	}
 }
 
