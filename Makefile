@@ -52,6 +52,7 @@ SRC =	$(TARGET).c \
 	sin_table.c \
 	vector.c \
 	clock.c \
+	spacewar.c \
 
 
 # MCU name, you MUST set this to match the board you are using

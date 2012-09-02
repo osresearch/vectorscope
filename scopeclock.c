@@ -94,6 +94,8 @@ int main(void)
 
 	clock_init();
 
+	ship_loop();
+
 	while (1)
 	{
 		if (count++ == 100)
