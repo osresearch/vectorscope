@@ -3,6 +3,12 @@
 #include "bits.h"
 #include "clock.h"
 
+volatile uint8_t now_hour = 15;
+volatile uint8_t now_min = 0;
+volatile uint8_t now_sec = 0;
+volatile uint16_t now_ms;
+volatile uint16_t now; // ms since boot
+
 // Define CONFIG_HZ_IRQ to enable a timer interrupt rather than
 // polling the interrupt flag.
 #define CONFIG_HZ_IRQ

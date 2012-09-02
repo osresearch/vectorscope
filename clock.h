@@ -11,11 +11,11 @@
 #include <stdint.h>
 
 /** Track the number of miliseconds, sec, min and hour since midnight */
-volatile uint8_t now_hour;
-volatile uint8_t now_min;
-volatile uint8_t now_sec;
-volatile uint16_t now_ms;
-volatile uint16_t now; // ms since boot
+extern volatile uint8_t now_hour;
+extern volatile uint8_t now_min;
+extern volatile uint8_t now_sec;
+extern volatile uint16_t now_ms;
+extern volatile uint16_t now; // ms since boot
 
 
 void

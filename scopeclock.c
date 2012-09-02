@@ -94,10 +94,11 @@ int main(void)
 
 	clock_init();
 
-	planet_loop();
-
 	while (1)
 	{
+		planet_loop();
+
+#if 0
 		if (count++ == 100)
 		{
 			count = 0;
@@ -123,6 +124,7 @@ int main(void)
 			draw_digit(x-8, y-4, h / 10);
 			draw_digit(x+2, y-4, h % 10);
 		}
+#endif
 
 		// Draw the hour hand
 		cli();
@@ -142,6 +144,7 @@ int main(void)
 		draw_digit_big(80+cx, cy, s / 10);
 		draw_digit_big(96+cx, cy, s % 10);
 
+#if 0
 		{
 			uint16_t h2 = h;
 			h2 = (h2 * 682 + m*11) / 64;
@@ -177,6 +180,7 @@ int main(void)
 		line_vert(0,0,255);
 		line_vert(255,0,255);
 */
+#endif
 	}
 }
 

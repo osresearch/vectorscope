@@ -147,7 +147,7 @@ planet_update(
 	float g = gravity(dx, dy);
 
 	// Project the gravity in the direction of the sun.
-	const float dt = 3600 * 24; // one day
+	const float dt = 3600.0; // one day
 	float theta = atan2(dy, dx);
 	s->vx += g * cos(theta) * dt;
 	s->vy += g * sin(theta) * dt;
@@ -174,9 +174,11 @@ planet_draw(
 	int i
 )
 {
-	// Scale x and y so that 2 au == 128
-	uint8_t x = (s->x / ONE_AU) * 64 + 128;
-	uint8_t y = (s->y / ONE_AU) * 64 + 128;
+	// Scale x and y so that 1.6 au == 128
+	float x = (s->x / (ONE_AU * 1.6)) * 128 + 128;
+	float y = (s->y / (ONE_AU * 1.6)) * 128 + 128;
+	if (x < 0 || x > 250 || y < 0 || y > 250)
+		return;
 
 	//line(x, y, x+s->vx*100, y+s->vy*100);
 	draw_digit(x, y, i);
@@ -189,14 +191,11 @@ planet_draw(
 void
 planet_loop(void)
 {
-	while (1)
+	for (int i = 0 ; i < PLANET_COUNT ; i++)
 	{
-		for (int i = 0 ; i < PLANET_COUNT ; i++)
-		{
-			planet_draw(&planets[i], i+1);
-			planet_update(&planets[i]);
-		}
-
-		PORTB = PORTD = 128;
+		planet_draw(&planets[i], i+1);
+		planet_update(&planets[i]);
 	}
+
+	PORTB = PORTD = 128;
 }
