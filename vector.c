@@ -16,6 +16,43 @@
 #include "sin_table.h"
 
 
+/** Slow scopes require time at each move; give them the chance */
+#define CONFIG_SLOW_SCOPE
+
+static void
+moveto(
+	uint8_t x,
+	uint8_t y
+)
+{
+#ifdef CONFIG_SLOW_SCOPE
+	int first_dx = PORTB - x;
+	int first_dy = PORTD - y;
+	if (first_dx < 0)
+		first_dx = -first_dx;
+	if (first_dy < 0)
+		first_dy = -first_dy;
+#endif
+
+	PORTB = x;
+	PORTD = y;
+
+#ifdef CONFIG_SLOW_SCOPE
+	// Allow the scope to reach this point
+	_delay_us((first_dx + first_dy));
+#endif
+}
+
+
+static inline void
+pixel_delay(void)
+{
+#ifdef CONFIG_SLOW_SCOPE
+	_delay_us(10);
+#endif
+}
+
+
 
 void
 line_vert(
@@ -24,12 +61,11 @@ line_vert(
 	uint8_t w
 )
 {
-	PORTB = x0;
-	PORTD = y0;
-
+	moveto(x0, y0);
 	for (uint8_t i = 0 ; i < w ; i++)
 	{
-		PORTD++;
+		PORTD = y0++;
+		pixel_delay();
 	}
 }
 
@@ -40,12 +76,11 @@ line_horiz(
 	uint8_t h
 )
 {
-	PORTB = x0;
-	PORTD = y0;
-
+	moveto(x0, y0);
 	for (uint8_t i = 0 ; i < h ; i++)
 	{
-		PORTB++;
+		PORTB = x0++;
+		pixel_delay();
 	}
 }
 
@@ -64,7 +99,25 @@ line(
 	int sx;
 	int sy;
 
-	if (x0 < x1)
+	if (x0 == x1)
+	{
+		if (y0 < y1)
+			line_vert(x0, y0, y1 - y0);
+		else
+			line_vert(x0, y1, y0 - y1);
+		return;
+	}
+
+	if (y0 == y1)
+	{
+		if (x0 < x1)
+			line_horiz(x0, y0, x1 - x0);
+		else
+			line_horiz(x1, y0, x0 - x1);
+		return;
+	}
+
+	if (x0 <= x1)
 	{
 		dx = x1 - x0;
 		sx = 1;
@@ -73,7 +126,7 @@ line(
 		sx = -1;
 	}
 
-	if (y0 < y1)
+	if (y0 <= y1)
 	{
 		dy = y1 - y0;
 		sy = 1;
@@ -84,11 +137,10 @@ line(
 
 	int err = dx - dy;
 
+	moveto(x0, y0);
+
 	while (1)
 	{
-		PORTB = x0;
-		PORTD = y0;
-
 		if (x0 == x1 && y0 == y1)
 			break;
 
@@ -96,13 +148,15 @@ line(
 		if (e2 > -dy)
 		{
 			err = err - dy;
-			x0 += sx;
+			PORTB = (x0 += sx);
 		}
 		if (e2 < dx)
 		{
 			err = err + dx;
-			y0 += sy;
+			PORTD = (y0 += sy);
 		}
+
+		pixel_delay();
 	}
 #else
 	uint8_t dx;
