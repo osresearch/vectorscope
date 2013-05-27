@@ -227,7 +227,7 @@ static inline uint8_t
 _draw_char(
 	const uint8_t x,
 	const uint8_t y,
-	const uint8_t c,
+	uint8_t c,
 	const uint8_t scale
 )
 {
@@ -263,6 +263,9 @@ _draw_char(
 	const uint8_t width = pgm_read_byte(&p->width);
 	return scaling(width, scale);
 #else
+	if ('a' <= c && c <= 'z')
+		c += 'A' - 'a';
+
 	const asteroids_char_t * const p = &asteroids_font[c - 0x20];
 	for (uint8_t i = 0 ; i < 8 ; i++)
 	{
@@ -288,7 +291,7 @@ _draw_char(
 		oy = ny;
 	}
 
-	return 16;
+	return 20;
 #endif
 }
 
