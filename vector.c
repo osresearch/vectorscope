@@ -39,7 +39,7 @@ moveto(
 
 #ifdef CONFIG_SLOW_SCOPE
 	// Allow the scope to reach this point
-	_delay_us((first_dx + first_dy));
+	_delay_us((first_dx + first_dy) / 2);
 #endif
 }
 
@@ -48,7 +48,7 @@ static inline void
 pixel_delay(void)
 {
 #ifdef CONFIG_SLOW_SCOPE
-	_delay_us(10);
+	_delay_us(1);
 #endif
 }
 
