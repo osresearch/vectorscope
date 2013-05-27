@@ -181,7 +181,7 @@ planet_draw(
 		return;
 
 	//line(x, y, x+s->vx*100, y+s->vy*100);
-	draw_digit(x, y, i);
+	draw_char_small(x, y, i + '0');
 
 	//line_horiz(x-5, y, 10);
 	//line_vert(x, y-5, 10);

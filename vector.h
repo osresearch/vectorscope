@@ -61,16 +61,22 @@ line(
 );
 
 
-void
-draw_digit_big(
+uint8_t
+draw_char_big(
 	uint8_t x,
 	uint8_t y,
 	uint8_t val
 );
 
+uint8_t
+draw_char_med(
+	uint8_t x,
+	uint8_t y,
+	uint8_t val
+);
 
-void
-draw_digit(
+uint8_t
+draw_char_small(
 	uint8_t x,
 	uint8_t y,
 	uint8_t val

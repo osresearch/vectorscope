@@ -204,64 +204,92 @@ line(
 }
 
 
-static inline void
-_draw_digit(
-	uint8_t x,
-	uint8_t y,
-	uint8_t val,
+static inline int8_t
+scaling(
+	int8_t d,
+	uint8_t scale
+)
+{
+	if (scale == 0)
+		return d / 2;
+	if (scale == 1)
+		return d;
+	if (scale == 2)
+		return (d * 3) / 2;
+	if (scale == 3)
+		return d * 2;
+	return d;
+}
+
+
+static inline uint8_t
+_draw_char(
+	const uint8_t x,
+	const uint8_t y,
+	const uint8_t c,
 	const uint8_t scale
 )
 {
-	const path_t * p = digits[val];
+	const hershey_char_t * p = &hershey_simplex[c - 0x20];
+	const uint8_t count = pgm_read_byte(&p->count);
 
-	while (1)
+	uint8_t ox = x;
+	uint8_t oy = y;
+	uint8_t pen_down = 0;
+
+	for (uint8_t i = 0 ; i < count ; i++)
 	{
-		uint8_t ox = x + p->x / scale;
-		uint8_t oy = y + p->y / scale;
-
-		while (1)
+		const int8_t px = pgm_read_byte(&p->points[i*2+0]);
+		const int8_t py = pgm_read_byte(&p->points[i*2+1]);
+		if (px == -1 && py == -1)
 		{
-			p++;
-			int8_t px = p->x;
-			int8_t py = p->y;
-
-			if (px == 0 && py == 0)
-				return;
-
-			if (px == -1 && py == -1)
-			{
-				p++;
-				break;
-			}
-
-			uint8_t nx = x + px / scale;
-			uint8_t ny = y + py / scale;
-
-			line(ox, oy, nx, ny);
-			ox = nx;
-			oy = ny;
+			pen_down = 0;
+			continue;
 		}
+
+		const uint8_t nx = x + scaling(px, scale);
+		const uint8_t ny = y + scaling(py, scale);
+
+		if (pen_down)
+			line(ox, oy, nx, ny);
+
+		pen_down = 1;
+		ox = nx;
+		oy = ny;
 	}
+
+	const uint8_t width = pgm_read_byte(&p->width);
+	return scaling(width, scale);
 }
 
 
-void
-draw_digit_big(
+uint8_t
+draw_char_big(
 	uint8_t x,
 	uint8_t y,
-	uint8_t val
+	uint8_t c
 )
 {
-	_draw_digit(x, y, val, 1);
+	return _draw_char(x, y, c, 2);
 }
 
 
-void
-draw_digit(
+uint8_t
+draw_char_med(
 	uint8_t x,
 	uint8_t y,
-	uint8_t val
+	uint8_t c
 )
 {
-	_draw_digit(x, y, val, 2);
+	return _draw_char(x, y, c, 1);
+}
+
+uint8_t
+draw_char_small(
+	uint8_t x,
+	uint8_t y,
+	uint8_t c
+)
+{
+	return _draw_char(x, y, c, 0);
 }

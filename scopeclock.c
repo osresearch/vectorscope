@@ -111,12 +111,25 @@ draw_hms(
 	uint8_t s = now_sec;
 	sei();
 
-	draw_digit_big( 0+cx, cy, h / 10);
-	draw_digit_big(16+cx, cy, h % 10);
-	draw_digit_big(40+cx, cy, m / 10);
-	draw_digit_big(56+cx, cy, m % 10);
-	draw_digit_big(80+cx, cy, s / 10);
-	draw_digit_big(96+cx, cy, s % 10);
+	draw_char_big( 0+cx, cy, h / 10 + '0');
+	draw_char_big(16+cx, cy, h % 10 + '0');
+	draw_char_big(40+cx, cy, m / 10 + '0');
+	draw_char_big(56+cx, cy, m % 10 + '0');
+	draw_char_big(80+cx, cy, s / 10 + '0');
+	draw_char_big(96+cx, cy, s % 10 + '0');
+}
+
+
+static void
+draw_str(
+	uint8_t x,
+	uint8_t y,
+	const char * str
+)
+{
+	char c;
+	while ((c = *str++))
+		x += draw_char_med(x, y, c);
 }
 
 
@@ -124,14 +137,14 @@ static void
 analog_clock(void)
 {
 	// Draw all the digits around the outside
-	for (uint8_t h = 0 ; h < 24 ; h += 1)
+	for (uint8_t h = 0 ; h < 24 ; h += 6)
 	{
 		uint16_t h2 = h;
 		h2 = (h2 * 682) / 64;
 		uint8_t x = sin_lookup(h2) * 7 / 8 + 128;
 		uint8_t y = cos_lookup(h2) * 7 / 8 + 128;
-		draw_digit(x-8, y-4, h / 10);
-		draw_digit(x+2, y-4, h % 10);
+		draw_char_small(x-8, y-4, h / 10 + '0');
+		draw_char_small(x+2, y-4, h % 10 + '0');
 	}
 
 	// Draw the hour hand
@@ -142,15 +155,19 @@ analog_clock(void)
 	uint8_t s = now_sec;
 	sei();
 
-	const uint8_t cx = 72;
+	const uint8_t cx = 55;
 	const uint8_t cy = 64;
 
-	draw_digit_big( 0+cx, cy, h / 10);
-	draw_digit_big(16+cx, cy, h % 10);
-	draw_digit_big(40+cx, cy, m / 10);
-	draw_digit_big(56+cx, cy, m % 10);
-	draw_digit_big(80+cx, cy, s / 10);
-	draw_digit_big(96+cx, cy, s % 10);
+	draw_char_big( 0+cx, cy, h / 10 + '0');
+	draw_char_big(25+cx, cy, h % 10 + '0');
+	draw_char_big(50+cx, cy, m / 10 + '0');
+	draw_char_big(75+cx, cy, m % 10 + '0');
+	draw_char_big(100+cx, cy, s / 10 + '0');
+	draw_char_big(125+cx, cy, s % 10 + '0');
+
+	draw_str(85, 190, "Future");
+	draw_str(120, 160, "Crew!");
+	
 
 	{
 		uint16_t h2 = h;

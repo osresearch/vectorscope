@@ -5,11 +5,12 @@
 
 typedef struct
 {
-	int8_t x;
-	int8_t y;
-} __attribute__((__packed__))
-path_t;
+	uint8_t count;
+	uint8_t width;
+	int8_t points[62]; // up to 31 xy points
+} hershey_char_t;
 
-extern const path_t digits[][32];
+
+extern const hershey_char_t hershey_simplex[];
 
 #endif
