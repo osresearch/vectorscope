@@ -41,7 +41,7 @@
 
 
 # Target file name (without extension).
-TARGET = scopeclock
+TARGET ?= scopeclock
 
 
 # List C source files here. (C dependencies are automatically generated.)

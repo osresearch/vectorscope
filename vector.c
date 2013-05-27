@@ -235,6 +235,9 @@ _draw_char(
 	uint8_t oy = y;
 	uint8_t pen_down = 0;
 
+	if (c < 0x20)
+		return 0;
+
 #ifdef CONFIG_HERSHEY
 	const hershey_char_t * p = &hershey_simplex[c - 0x20];
 	const uint8_t count = pgm_read_byte(&p->count);
