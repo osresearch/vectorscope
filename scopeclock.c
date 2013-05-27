@@ -112,11 +112,11 @@ draw_hms(
 	sei();
 
 	draw_char_big( 0+cx, cy, h / 10 + '0');
-	draw_char_big(16+cx, cy, h % 10 + '0');
+	draw_char_big(20+cx, cy, h % 10 + '0');
 	draw_char_big(40+cx, cy, m / 10 + '0');
-	draw_char_big(56+cx, cy, m % 10 + '0');
+	draw_char_big(60+cx, cy, m % 10 + '0');
 	draw_char_big(80+cx, cy, s / 10 + '0');
-	draw_char_big(96+cx, cy, s % 10 + '0');
+	draw_char_big(100+cx, cy, s % 10 + '0');
 }
 
 
@@ -159,11 +159,11 @@ analog_clock(void)
 	const uint8_t cy = 64;
 
 	draw_char_big( 0+cx, cy, h / 10 + '0');
-	draw_char_big(25+cx, cy, h % 10 + '0');
-	draw_char_big(50+cx, cy, m / 10 + '0');
-	draw_char_big(75+cx, cy, m % 10 + '0');
-	draw_char_big(100+cx, cy, s / 10 + '0');
-	draw_char_big(125+cx, cy, s % 10 + '0');
+	draw_char_big(32+cx, cy, h % 10 + '0');
+	draw_char_big(64+cx, cy, m / 10 + '0');
+	draw_char_big(96+cx, cy, m % 10 + '0');
+	draw_char_big(128+cx, cy, s / 10 + '0');
+	draw_char_big(160+cx, cy, s % 10 + '0');
 
 	draw_str(85, 190, "Future");
 	draw_str(120, 160, "Crew!");

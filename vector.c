@@ -13,6 +13,7 @@
 #include "usb_serial.h"
 #include "bits.h"
 #include "hershey.h"
+#include "asteroids-font.h"
 #include "sin_table.h"
 
 
@@ -230,12 +231,13 @@ _draw_char(
 	const uint8_t scale
 )
 {
-	const hershey_char_t * p = &hershey_simplex[c - 0x20];
-	const uint8_t count = pgm_read_byte(&p->count);
-
 	uint8_t ox = x;
 	uint8_t oy = y;
 	uint8_t pen_down = 0;
+
+#ifdef CONFIG_HERSHEY
+	const hershey_char_t * p = &hershey_simplex[c - 0x20];
+	const uint8_t count = pgm_read_byte(&p->count);
 
 	for (uint8_t i = 0 ; i < count ; i++)
 	{
@@ -260,6 +262,34 @@ _draw_char(
 
 	const uint8_t width = pgm_read_byte(&p->width);
 	return scaling(width, scale);
+#else
+	const asteroids_char_t * const p = &asteroids_font[c - 0x20];
+	for (uint8_t i = 0 ; i < 8 ; i++)
+	{
+		const uint8_t xy = pgm_read_byte(&p->points[i]);
+		if (xy == 0xFF)
+			break;
+		if (xy == 0xFE)
+		{
+			pen_down = 0;
+			continue;
+		}
+
+		const int8_t px = ((xy >> 4) & 0xF) * 2;
+		const int8_t py = ((xy >> 0) & 0xF) * 2;
+		const uint8_t nx = x + scaling(px, scale);
+		const uint8_t ny = y + scaling(py, scale);
+
+		if (pen_down)
+			line(ox, oy, nx, ny);
+
+		pen_down = 1;
+		ox = nx;
+		oy = ny;
+	}
+
+	return 16;
+#endif
 }
 
 

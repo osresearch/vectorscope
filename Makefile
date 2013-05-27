@@ -49,6 +49,7 @@ SRC =	$(TARGET).c \
 	usb_serial.c \
 	bits.c \
 	hershey.c \
+	asteroids-font.c \
 	sin_table.c \
 	vector.c \
 	clock.c \
