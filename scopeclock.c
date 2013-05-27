@@ -95,11 +95,14 @@ draw_image(
 	} while (x != 0);
 }
 
-#include "images/adafruit.xbm"
+#include "images/samson.xbm"
 
 
 static void
-draw_hms(void)
+draw_hms(
+	uint8_t cx,
+	uint8_t cy
+)
 {
 	cli();
 	uint16_t ms = now_ms;
@@ -107,9 +110,6 @@ draw_hms(void)
 	uint8_t m = now_min;
 	uint8_t s = now_sec;
 	sei();
-
-	const uint8_t cx = 0;
-	const uint8_t cy = 0;
 
 	draw_digit_big( 0+cx, cy, h / 10);
 	draw_digit_big(16+cx, cy, h % 10);
@@ -123,12 +123,8 @@ draw_hms(void)
 static void
 analog_clock(void)
 {
-	draw_image(image_bits);
-	draw_hms();
-	return;
-
 	// Draw all the digits around the outside
-	for (uint8_t h = 0 ; h < 24 ; h++)
+	for (uint8_t h = 0 ; h < 24 ; h += 1)
 	{
 		uint16_t h2 = h;
 		h2 = (h2 * 682) / 64;
@@ -238,9 +234,17 @@ int main(void)
 	while (1)
 	{
 		if (0)
+		{
 			planet_loop();
-		else
+			draw_hms(64, now_min*4);
+		} else
+		if (0)
+		{
+			draw_image(image_bits);
+			draw_hms(0,0);
+		} else {
 			analog_clock();
+		}
 	}
 }
 
