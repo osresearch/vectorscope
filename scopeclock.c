@@ -165,8 +165,9 @@ analog_clock(void)
 	draw_char_big(128+cx, cy, s / 10 + '0');
 	draw_char_big(160+cx, cy, s % 10 + '0');
 
-	draw_str(85, 190, "Future");
-	draw_str(120, 160, "Crew!");
+	draw_str(0, 190, "ABCDEFGHIJKL");
+	draw_str(0, 160, "MNOPQRSTUVWX");
+	draw_str(0, 130, "YZ0123456789");
 	
 
 	{
