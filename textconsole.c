@@ -53,8 +53,8 @@ printable(
 }
 
 
-#define MAX_ROWS 8
-#define MAX_COLS 12
+#define MAX_ROWS 10
+#define MAX_COLS 15
 
 static char text[MAX_ROWS][MAX_COLS] = {
 	{ "" },
@@ -73,16 +73,18 @@ static char text[MAX_ROWS][MAX_COLS] = {
 static void
 draw_text(void)
 {
-	uint8_t y = 256-32;
+	const uint8_t height = 24;
+
+	uint8_t y = 256-height;
 	for (uint8_t row = 0 ; row < MAX_ROWS ; row++)
 	{
 		uint8_t x = 0;
 		for (uint8_t col = 0 ; col < MAX_COLS ; col++)
 		{
-			x += draw_char_med(x, y, text[row][col]);
+			x += draw_char_small(x, y, text[row][col]) + 3;
 		}
 
-		y -= 32;
+		y -= height;
 	}
 }
 

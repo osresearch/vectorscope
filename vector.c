@@ -49,7 +49,7 @@ static inline void
 pixel_delay(void)
 {
 #ifdef CONFIG_SLOW_SCOPE
-	_delay_us(1);
+	_delay_us(5);
 #endif
 }
 
@@ -212,7 +212,7 @@ scaling(
 )
 {
 	if (scale == 0)
-		return d / 2;
+		return (d * 2) / 3;
 	if (scale == 1)
 		return d;
 	if (scale == 2)
@@ -294,7 +294,7 @@ _draw_char(
 		oy = ny;
 	}
 
-	return 20;
+	return scaling(20, scale);
 #endif
 }
 
