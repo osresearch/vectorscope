@@ -1,0 +1,10 @@
+#!/bin/sh
+
+while true; do
+	( \
+	echo ''; \
+	sleep 2 ; \
+	curl 'https://twitter.com/search?q=i' | ./tweet-filter ; \
+	) > /dev/tty.usbmodem12341
+	sleep 15
+done
