@@ -41,7 +41,7 @@ moveto(
 
 #ifdef CONFIG_SLOW_SCOPE
 	// Allow the scope to reach this point
-	_delay_us((first_dx + first_dy) / 2);
+	_delay_us((first_dx + first_dy) / 3);
 #endif
 }
 
@@ -213,6 +213,7 @@ vector_rot_init(
 	uint8_t theta
 )
 {
+	r->theta = theta;
 	r->sin_t = sin_lookup(theta);
 	r->cos_t = cos_lookup(theta);
 }
@@ -226,9 +227,15 @@ vector_rot_x(
 )
 {
 	int32_t x2 = x;
-	int32_t y2 = y;
+	int32_t w;
+	if (r->theta != 0)
+	{
+		int32_t y2 = y;
 
-	int32_t w = (r->scale * (x2 * r->cos_t + y2 * r->sin_t)) / (32 * 256);
+		w = (r->scale * (x2 * r->cos_t + y2 * r->sin_t)) / (32 * 256);
+	} else {
+		w = (r->scale * x2) / 64;
+	}
 	
 	return w + r->cx;
 }
@@ -242,7 +249,13 @@ vector_rot_y(
 {
 	int32_t x2 = x;
 	int32_t y2 = y;
-	int32_t z = (r->scale * (y2 * r->cos_t - x2 * r->sin_t)) / (32 * 256);
+	int32_t z;
+
+	if (r->theta != 0)
+		z = (r->scale * (y2 * r->cos_t - x2 * r->sin_t)) / (32 * 256);
+	else
+		z = (r->scale * y2) / 64;
+
 	return z + r->cy;
 }
 	

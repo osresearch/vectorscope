@@ -63,6 +63,7 @@ static char text[MAX_ROWS][MAX_COLS] = {
 	{ "Incept date" },
 	{ "1945-05-27" },
 /*
+	{ "012345678901234" },
 	{ "0123456789-=" },
 	{ "~!@#$%^&*\\|_" },
 	{ "+`[]{}()<>/?" },
@@ -70,9 +71,9 @@ static char text[MAX_ROWS][MAX_COLS] = {
 };
 
 static vector_rot_t rot = {
-	.scale = 100,
+	.scale = 64,
 	.cx = 128,
-	.cy = 148,
+	.cy = 128,
 };
 
 
@@ -81,14 +82,14 @@ draw_text(void)
 {
 	const uint8_t height = 24;
 
-	int8_t y = 128 - 24;
+	uint8_t y = 256 - height;
 	for (uint8_t row = 0 ; row < MAX_ROWS ; row++)
 	{
-		int8_t x = -128;
+		uint8_t x = 0;
 		for (uint8_t col = 0 ; col < MAX_COLS ; col++)
 		{
-			draw_char_rot(&rot, x, y, text[row][col]);
-			x += 20;
+			draw_char_small(x, y, text[row][col]);
+			x += 16;
 		}
 
 		y -= height;
@@ -113,16 +114,6 @@ int main(void)
 	while (!usb_configured()) /* wait */ ;
 	_delay_ms(1000);
 
-	// wait for the user to run their terminal emulator program
-	// which sets DTR to indicate it is ready to receive.
-	while (!(usb_serial_get_control() & USB_SERIAL_DTR))
-		continue;
-
-	// discard anything that was received prior.  Sometimes the
-	// operating system or other software will send a modem
-	// "AT command", which can still be buffered.
-	usb_serial_flush_input();
-
 	DDRB = 0xFF;
 	DDRD = 0xFF;
 	PORTB = 128;
@@ -134,9 +125,13 @@ int main(void)
 	uint16_t theta = 0;
 	uint8_t size = 0;
 
-	while (1)
+
+	// wait for the user to run their terminal emulator program
+	// which sets DTR to indicate it is ready to receive.
+	while (!(usb_serial_get_control() & USB_SERIAL_DTR))
 	{
-		vector_rot_init(&rot, (theta++) >> 1);
+		vector_rot_init(&rot, (theta++) / 4);
+
 		if (size >= 128)
 			rot.scale = (32+64) - (size - 128)/2;
 		else
@@ -169,8 +164,24 @@ int main(void)
 		line(254, 0, 254, 254);
 		line(254, 254, 0, 254);
 		line(0, 254, 0, 0);
+	}
 
-		//draw_text();
+
+	// discard anything that was received prior.  Sometimes the
+	// operating system or other software will send a modem
+	// "AT command", which can still be buffered.
+	usb_serial_flush_input();
+
+	// No rotation for the text
+	vector_rot_init(&rot, 0);
+	rot.scale = 48;
+
+	while (1)
+	{
+		if (rot.scale < 48)
+			rot.scale = (size++) / 2;
+
+		draw_text();
 		int c = usb_serial_getchar();
 		if (c == -1)
 			continue;
@@ -178,6 +189,8 @@ int main(void)
 		if (c == '\f')
 		{
 			col = 0;
+			rot.scale = 0;
+			size = 0;
 			memset(text, '\0', sizeof(text));
 			continue;
 		}

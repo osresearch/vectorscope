@@ -43,6 +43,9 @@ typedef struct
 	// scale of vector, divided by 16
 	int8_t scale;
 
+	// Angle from 0 to 255 (== 2 Pi)
+	uint8_t theta;
+
 	// precomputed sin/cos
 	int8_t sin_t;
 	int8_t cos_t;
