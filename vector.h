@@ -10,33 +10,6 @@
 #include <stdint.h>
 
 
-static inline void
-vector_x(
-	uint8_t x
-)
-{
-	PORTB = x;
-}
-
-static  inline void
-vector_y(
-	uint8_t y
-)
-{
-	PORTD = y;
-}
-
-
-static inline void
-vector_init(void)
-{
-	DDRD = 0xFF;
-	DDRB = 0xFF;
-	vector_x(128);
-	vector_y(128);
-}
-
-
 void
 line_vert(
 	uint8_t x0,
@@ -61,6 +34,44 @@ line(
 );
 
 
+typedef struct
+{
+	// center of rotation
+	uint8_t cx;
+	uint8_t cy;
+
+	// scale of vector, divided by 16
+	int8_t scale;
+
+	// precomputed sin/cos
+	int8_t sin_t;
+	int8_t cos_t;
+} vector_rot_t;
+
+
+void
+vector_rot_init(
+	vector_rot_t * r,
+	uint8_t angle
+);
+
+
+uint8_t
+vector_rot_x(
+	const vector_rot_t * r,
+	int8_t x,
+	int8_t y
+);
+
+
+uint8_t
+vector_rot_y(
+	const vector_rot_t * r,
+	int8_t x,
+	int8_t y
+);
+
+
 uint8_t
 draw_char_big(
 	uint8_t x,
@@ -82,5 +93,13 @@ draw_char_small(
 	uint8_t val
 );
 
+
+void
+draw_char_rot(
+	const vector_rot_t * const r,
+	int8_t x,
+	int8_t y,
+	char val
+);
 
 #endif

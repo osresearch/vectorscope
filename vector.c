@@ -14,6 +14,7 @@
 #include "bits.h"
 #include "hershey.h"
 #include "asteroids-font.h"
+#include "vector.h"
 #include "sin_table.h"
 
 
@@ -205,6 +206,47 @@ line(
 }
 
 
+
+void
+vector_rot_init(
+	vector_rot_t * r,
+	uint8_t theta
+)
+{
+	r->sin_t = sin_lookup(theta);
+	r->cos_t = cos_lookup(theta);
+}
+
+
+uint8_t
+vector_rot_x(
+	const vector_rot_t * r,
+	int8_t x,
+	int8_t y
+)
+{
+	int32_t x2 = x;
+	int32_t y2 = y;
+
+	int32_t w = (r->scale * (x2 * r->cos_t + y2 * r->sin_t)) / (32 * 256);
+	
+	return w + r->cx;
+}
+
+uint8_t
+vector_rot_y(
+	const vector_rot_t * r,
+	int8_t x,
+	int8_t y
+)
+{
+	int32_t x2 = x;
+	int32_t y2 = y;
+	int32_t z = (r->scale * (y2 * r->cos_t - x2 * r->sin_t)) / (32 * 256);
+	return z + r->cy;
+}
+	
+
 static inline int8_t
 scaling(
 	int8_t d,
@@ -221,6 +263,7 @@ scaling(
 		return d * 2;
 	return d;
 }
+
 
 
 static inline uint8_t
@@ -329,3 +372,54 @@ draw_char_small(
 {
 	return _draw_char(x, y, c, 0);
 }
+
+
+void
+draw_char_rot(
+	const vector_rot_t * const r,
+	const int8_t x,
+	const int8_t y,
+	char c
+)
+{
+	// we never use the original points since the lines always
+	// start pen-up
+	uint8_t ox = 0; // vector_rot_x(r, x, y);
+	uint8_t oy = 0; // vector_rot_y(r, x, y);
+	uint8_t pen_down = 0;
+
+	if (c < 0x20)
+		return;
+
+	if ('a' <= c && c <= 'z')
+		c += 'A' - 'a';
+
+	const asteroids_char_t * const p = &asteroids_font[c - 0x20];
+	for (uint8_t i = 0 ; i < 8 ; i++)
+	{
+		const uint8_t xy = pgm_read_byte(&p->points[i]);
+		if (xy == 0xFF)
+			break;
+		if (xy == 0xFE)
+		{
+			pen_down = 0;
+			continue;
+		}
+
+		const int8_t px = ((xy >> 4) & 0xF) * 2;
+		const int8_t py = ((xy >> 0) & 0xF) * 2;
+
+		const int8_t nx = x + px;
+		const int8_t ny = y + py;
+		const uint8_t rx = vector_rot_x(r, nx, ny);
+		const uint8_t ry = vector_rot_y(r, nx, ny);
+
+		if (pen_down)
+			line(ox, oy, rx, ry);
+
+		pen_down = 1;
+		ox = rx;
+		oy = ry;
+	}
+}
+

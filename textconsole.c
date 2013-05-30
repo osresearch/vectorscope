@@ -69,19 +69,26 @@ static char text[MAX_ROWS][MAX_COLS] = {
 */
 };
 
+static vector_rot_t rot = {
+	.scale = 100,
+	.cx = 128,
+	.cy = 148,
+};
+
 
 static void
 draw_text(void)
 {
 	const uint8_t height = 24;
 
-	uint8_t y = 256-height;
+	int8_t y = 128 - 24;
 	for (uint8_t row = 0 ; row < MAX_ROWS ; row++)
 	{
-		uint8_t x = 0;
+		int8_t x = -128;
 		for (uint8_t col = 0 ; col < MAX_COLS ; col++)
 		{
-			x += draw_char_small(x, y, text[row][col]) + 3;
+			draw_char_rot(&rot, x, y, text[row][col]);
+			x += 20;
 		}
 
 		y -= height;
@@ -124,10 +131,46 @@ int main(void)
 	clock_init();
 
 	uint8_t col = 0;
+	uint16_t theta = 0;
+	uint8_t size = 0;
 
 	while (1)
 	{
-		draw_text();
+		vector_rot_init(&rot, (theta++) >> 1);
+		if (size >= 128)
+			rot.scale = (32+64) - (size - 128)/2;
+		else
+			rot.scale = 32 + size/2;
+
+		size = (size + 3);
+
+		draw_char_rot(&rot, -50, -10, 'A');
+		draw_char_rot(&rot, -30, -10, 'L');
+		draw_char_rot(&rot, -10, -10, 'E');
+		draw_char_rot(&rot, +20, -10, 'R');
+		draw_char_rot(&rot, +40, -10, 'T');
+		draw_char_rot(&rot, +60, -10, '!');
+
+		draw_char_med(30, 60, '#');
+		draw_char_med(50, 60, 'F');
+		draw_char_med(70, 60, 'u');
+		draw_char_med(90, 60, 't');
+		draw_char_med(110, 60, 'u');
+		draw_char_med(132, 60, 'r');
+		draw_char_med(152, 60, 'e');
+
+		draw_char_med(100, 30, 'C');
+		draw_char_med(120, 30, 'r');
+		draw_char_med(140, 30, 'e');
+		draw_char_med(160, 30, 'w');
+		draw_char_med(180, 30, '*');
+
+		line(0, 0, 254, 0);
+		line(254, 0, 254, 254);
+		line(254, 254, 0, 254);
+		line(0, 254, 0, 0);
+
+		//draw_text();
 		int c = usb_serial_getchar();
 		if (c == -1)
 			continue;
