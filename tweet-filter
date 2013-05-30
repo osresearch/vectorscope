@@ -13,7 +13,7 @@ while (m!<p class="js-tweet-text.*?">(.*?)</p>!msg)
 	next if $n++ < 5;
 
 	my $hs = HTML::Strip->new;
-	print $hs->parse($1), "\n";
+	print "", $hs->parse($1), "\n";
 	last;
 }
 
