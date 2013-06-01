@@ -4,7 +4,11 @@
  * Might be similar to another game you've played.
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <inttypes.h>
+#include "sin_table.h"
+
+#define rand() lrand48()
 
 typedef struct
 {
@@ -22,6 +26,7 @@ typedef struct
 	uint16_t fuel;
 	uint8_t shots;
 	uint8_t angle;
+	uint8_t dead;
 } ship_t;
 
 typedef struct
@@ -58,6 +63,25 @@ point_update(
 }
 
 
+static int
+collide(
+	const point_t * const p,
+	const point_t * const q,
+	const uint8_t radius
+)
+{
+	int16_t dx = p->x - q->x;
+	int16_t dy = p->y - q->y;
+
+	if (-radius < dx && dx < radius
+	&&  -radius < dy && dy < radius)
+		return 1;
+
+	// Not in the bounding box.
+	return 0;
+}
+
+
 static void
 ship_update_angle(
 	ship_t * const s,
@@ -86,39 +110,30 @@ ship_update_thrust(
 		thrust = s->fuel;
 
 	s->fuel -= thrust;
-	s->vx += (s->ax * thrust) / 128;
-	s->vy += (s->ay * thrust) / 128;
+	s->p.vx += (s->ax * thrust) / 128;
+	s->p.vy += (s->ay * thrust) / 128;
 }
 
 
 static void
-ship_update_ammo(
+ship_fire(
 	ship_t * const s,
-	uint8_t fire
+	bullet_t * const b
 )
 {
-	if (fire == 0 || s->shots == 0)
+	if (s->shots == 0)
 		return;
 
-	// find the first free slot for bullet tracking
-	for (uint8_t i = 0 ; i < NUM_BULLETS ; i++)
-	{
-		bullet_t * const b = &bullets[i];
-		if (b->age != 0)
-			continue;
+#define BULLET_RANGE 255
+#define BULLET_VEL 16
 
-		b->age = 255;
-		b->p.x = s->p.x;
-		b->p.y = s->p.y;
-		b->p.vx = s->ax; // in the direction of the ship
-		b->p.vy = s->ay; // in the direction of the ship
+	b->age = BULLET_RANGE;
+	b->p.x = s->p.x;
+	b->p.y = s->p.y;
+	b->p.vx = s->ax * BULLET_VEL + s->p.vx; // in the direction of the ship
+	b->p.vy = s->ay * BULLET_VEL + s->p.vy; // in the direction of the ship
 
-		s->shots--;
-
-		return;
-	}
-
-	// no bullets available.  don't fire.
+	s->shots--;
 }
 
 
@@ -126,25 +141,22 @@ static void
 ship_update(
 	ship_t * const s,
 	int8_t rot,
-	uint8_t thrust,
-	uint8_t fire
+	uint8_t thrust
 )
 {
 	ship_update_angle(s, rot);
-	ship_udpate_thrust(s, thrust);
+	ship_update_thrust(s, thrust);
 
 	// Update our position before we fire the gun
 	point_update(&s->p);
-
-	ship_update_bullets(s, fire);
 }
 
 
 static void
 rocks_update(
 	ship_t * const s,
-	rock_t * const rocks,
-	bullet_t * const bullets
+	bullet_t * const bullets,
+	rock_t * const rocks
 )
 {
 	for (uint8_t i = 0 ; i < NUM_ROCKS ; i++)
@@ -180,16 +192,23 @@ rocks_update(
 
 static void
 bullets_update(
-	bullet_t * const bullets
+	ship_t * const s,
+	bullet_t * const bullets,
+	uint8_t fire
 )
 {
 	for (uint8_t i = 0 ; i < NUM_BULLETS ; i++)
 	{
 		bullet_t * const b = &bullets[i];
-		if (b->age == 0)
-			continue;
-
-		point_update(&b->p);
+		if (b->age != 0)
+			point_update(&b->p);
+		else
+		if (fire)
+		{
+			// We can try to fire this one
+			ship_fire(s, b);
+			fire = 0;
+		}
 	}
 }
 
@@ -225,7 +244,7 @@ bullets_init(
 
 static void
 rocks_init(
-	rocks_t * const rocks,
+	rock_t * const rocks,
 	uint8_t num
 )
 {
@@ -241,17 +260,19 @@ rocks_init(
 
 		r->size = 64;
 
+#define MIN_RADIUS 1024
+
 		// Make sure that there is space around the center
-		uint8_t x = rand();
-		uint8_t y = rand();
+		int16_t x = rand();
+		int16_t y = rand();
 		if (0 <= x)
-			x += min_radius;
+			x += MIN_RADIUS;
 		else
-			x -= min_radius;
+			x -= MIN_RADIUS;
 		if (0 <= y)
-			y += min_radius;
+			y += MIN_RADIUS;
 		else
-			y -= min_radius;
+			y -= MIN_RADIUS;
 			
 		r->p.x = x;
 		r->p.y = y;
@@ -263,12 +284,12 @@ rocks_init(
 
 static void
 game_init(
-	game_t * const g,
+	game_t * const g
 )
 {
 	ship_init(&g->s);
-	bullets_init(&g->b);
-	rocks_init(&g->r, 8);
+	bullets_init(g->b);
+	rocks_init(g->r, 8);
 }
 
 
@@ -280,9 +301,9 @@ game_update(
 	uint8_t fire
 )
 {
-	ship_update(&g->s, rot, thrust, fire);
-	bullet_update(&g->b);
-	rocks_update(&g->s, &g->b, &g->r);
+	ship_update(&g->s, rot, thrust);
+	bullets_update(&g->s, g->b, fire);
+	rocks_update(&g->s, g->b, g->r);
 	if (&g->s.dead)
 		game_init(g);
 }
@@ -296,7 +317,7 @@ int main(void)
 
 	while (1)
 	{
-		printf("%+6d,%+6d %+6d,%+6d\n", g.s.p.x, g.s.p.y, g.s.p.vx, g.s.p.vy);
+		printf("---\nS: %+6d,%+6d %+6d,%+6d\n", g.s.p.x, g.s.p.y, g.s.p.vx, g.s.p.vy);
 
 		for (uint8_t i = 0 ; i < NUM_ROCKS ; i++)
 		{
@@ -306,5 +327,6 @@ int main(void)
 			printf("%d: %+6d,%+6d %+6d,%+6d\n", i, g.s.p.x, g.s.p.y, g.s.p.vx, g.s.p.vy);
 		}
 
-		game_update(g, 0, 0, 0);
+		game_update(&g, 0, 0, 0);
 	}
+}
