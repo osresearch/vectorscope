@@ -10,6 +10,12 @@
 
 #define rand() lrand48()
 
+#define STARTING_FUEL 65535
+#define MAX_ROCKS	32
+#define MAX_BULLETS	4
+
+
+
 typedef struct
 {
 	int16_t x;
@@ -42,14 +48,11 @@ typedef struct
 } rock_t;
 
 
-#define NUM_ROCKS	32
-#define NUM_BULLETS	4
-
 typedef struct
 {
 	ship_t s;
-	bullet_t b[NUM_BULLETS];
-	rock_t r[NUM_ROCKS];
+	bullet_t b[MAX_BULLETS];
+	rock_t r[MAX_ROCKS];
 } game_t;
 
 
@@ -146,8 +149,6 @@ ship_update(
 {
 	ship_update_angle(s, rot);
 	ship_update_thrust(s, thrust);
-
-	// Update our position before we fire the gun
 	point_update(&s->p);
 }
 
@@ -159,7 +160,7 @@ rocks_update(
 	rock_t * const rocks
 )
 {
-	for (uint8_t i = 0 ; i < NUM_ROCKS ; i++)
+	for (uint8_t i = 0 ; i < MAX_ROCKS ; i++)
 	{
 		rock_t * const r = &rocks[i];
 		if (r->size == 0)
@@ -169,7 +170,7 @@ rocks_update(
 		uint8_t rock_dead = 0;
 
 		// check for bullet collision
-		for (uint8_t j = 0 ; j < NUM_BULLETS ; j++)
+		for (uint8_t j = 0 ; j < MAX_BULLETS ; j++)
 		{
 			bullet_t * const b = &bullets[i];
 			if (b->age == 0)
@@ -197,7 +198,7 @@ bullets_update(
 	uint8_t fire
 )
 {
-	for (uint8_t i = 0 ; i < NUM_BULLETS ; i++)
+	for (uint8_t i = 0 ; i < MAX_BULLETS ; i++)
 	{
 		bullet_t * const b = &bullets[i];
 		if (b->age != 0)
@@ -224,6 +225,8 @@ ship_init(
 	s->p.vx = 0;
 	s->p.vy = 0;
 	s->angle = 0;
+	s->dead = 0;
+	s->fuel = STARTING_FUEL;
 	s->ax = sin_lookup(s->angle);
 	s->ay = cos_lookup(s->angle);
 }
@@ -234,7 +237,7 @@ bullets_init(
 	bullet_t * const bullets
 )
 {
-	for (uint8_t i = 0 ; i < NUM_BULLETS ; i++)
+	for (uint8_t i = 0 ; i < MAX_BULLETS ; i++)
 	{
 		bullet_t * const b = &bullets[i];
 		b->age = 0;
@@ -248,7 +251,7 @@ rocks_init(
 	uint8_t num
 )
 {
-	for (uint8_t i = 0 ; i < NUM_ROCKS ; i++)
+	for (uint8_t i = 0 ; i < MAX_ROCKS ; i++)
 	{
 		rock_t * const r = &rocks[i];
 		if (i > num)
@@ -265,6 +268,7 @@ rocks_init(
 		// Make sure that there is space around the center
 		int16_t x = rand();
 		int16_t y = rand();
+printf("x,y=%d,%d\n", x, y);
 		if (0 <= x)
 			x += MIN_RADIUS;
 		else
@@ -301,11 +305,21 @@ game_update(
 	uint8_t fire
 )
 {
+	// Update our position before we fire the gun
 	ship_update(&g->s, rot, thrust);
+
+	// Update our bullets before the rocks move
 	bullets_update(&g->s, g->b, fire);
+
+	// Update the rocks, checking for collisions
 	rocks_update(&g->s, g->b, g->r);
-	if (&g->s.dead)
+
+	// If we hit something, start over
+	if (g->s.dead)
+	{
+		printf("game over\n");
 		game_init(g);
+	}
 }
 
 
@@ -319,12 +333,12 @@ int main(void)
 	{
 		printf("---\nS: %+6d,%+6d %+6d,%+6d\n", g.s.p.x, g.s.p.y, g.s.p.vx, g.s.p.vy);
 
-		for (uint8_t i = 0 ; i < NUM_ROCKS ; i++)
+		for (uint8_t i = 0 ; i < MAX_ROCKS ; i++)
 		{
 			const rock_t * const r = &g.r[i];
 			if (r->size == 0)
 				continue;
-			printf("%d: %+6d,%+6d %+6d,%+6d\n", i, g.s.p.x, g.s.p.y, g.s.p.vx, g.s.p.vy);
+			printf("%d: %+6d,%+6d %+6d,%+6d\n", i, r->p.x, r->p.y, r->p.vx, r->p.vy);
 		}
 
 		game_update(&g, 0, 0, 0);
