@@ -11,6 +11,7 @@
 #define rand() lrand48()
 
 #define STARTING_FUEL 65535
+#define STARTING_AMMO 65535
 #define MAX_ROCKS	32
 #define MAX_BULLETS	4
 
@@ -31,7 +32,7 @@ typedef struct
 	int16_t ax;
 	int16_t ay;
 	uint16_t fuel;
-	uint8_t shots;
+	uint16_t shots;
 	uint8_t angle;
 	uint8_t dead;
 } ship_t;
@@ -120,11 +121,17 @@ static int
 collide(
 	const point_t * const p,
 	const point_t * const q,
-	const uint8_t radius
+	const int16_t radius
 )
 {
 	int16_t dx = p->x - q->x;
 	int16_t dy = p->y - q->y;
+
+	if (0) fprintf(stderr, "%d,%d -> %d,%d => %d,%d\n",
+		p->x, p->y,
+		q->x, q->y,
+		dx, dy
+	);
 
 	if (-radius < dx && dx < radius
 	&&  -radius < dy && dy < radius)
@@ -178,13 +185,15 @@ ship_fire(
 		return;
 
 #define BULLET_RANGE 255
-#define BULLET_VEL 16
+#define BULLET_VEL 8
 
 	b->age = BULLET_RANGE;
 	b->p.x = s->p.x;
 	b->p.y = s->p.y;
 	b->p.vx = s->ax * BULLET_VEL + s->p.vx; // in the direction of the ship
 	b->p.vy = s->ay * BULLET_VEL + s->p.vy; // in the direction of the ship
+
+	fprintf(stderr, "fire: vx=%d vy=%d\n", b->p.vx, b->p.vy);
 
 	s->shots--;
 }
@@ -220,22 +229,28 @@ rocks_update(
 		uint8_t rock_dead = 0;
 
 		// check for bullet collision
+//fprintf(stderr, "Bullet check\n");
 		for (uint8_t j = 0 ; j < MAX_BULLETS ; j++)
 		{
-			bullet_t * const b = &bullets[i];
+			bullet_t * const b = &bullets[j];
 			if (b->age == 0)
 				continue;
 			if (collide(&r->p, &b->p, r->size))
 			{
+				fprintf(stderr, "rock %d is dead\n", i);
 				r->size = 0;
+				b->age = 0;
 				rock_dead = 1;
 				// \todo split into mulitple rocks
 				break;
 			}
 		}
 
-		// check for ship collision if this rock wasn't destroyed
-		if (!rock_dead && collide(&r->p, &s->p, r->size))
+		if (rock_dead)
+			continue;
+
+//fprintf(stderr, "Ship check\n");
+		 if (collide(&r->p, &s->p, r->size))
 			s->dead = 1;
 	}
 }
@@ -252,8 +267,10 @@ bullets_update(
 	{
 		bullet_t * const b = &bullets[i];
 		if (b->age != 0)
+		{
 			point_update(&b->p);
-		else
+			fprintf(stderr, "%d,%d\n", b->p.x/256, b->p.y/256);
+		} else
 		if (fire)
 		{
 			// We can try to fire this one
@@ -261,6 +278,9 @@ bullets_update(
 			fire = 0;
 		}
 	}
+
+	if (fire)
+		fprintf(stderr, "no bullets\n");
 }
 
 
@@ -277,6 +297,7 @@ ship_init(
 	s->angle = rand();
 	s->dead = 0;
 	s->fuel = STARTING_FUEL;
+	s->shots = STARTING_AMMO;
 	s->ax = cos_lookup(s->angle);
 	s->ay = sin_lookup(s->angle);
 }
@@ -420,11 +441,15 @@ draw_bullet(
 )
 {
 	int8_t path[] = {
-		0, 0,
-		b->p.vx, b->p.vy,
+		-1, -1,
+		-1, +1,
+		+1, +1,
+		+1, -1,
+		-1, -1,
+		//b->p.vx/64, b->p.vy/64,
 	};
 
-	draw_path(b->p.x / 256 + 128, b->p.y / 256 + 128, path, 2);
+	draw_path(b->p.x / 256 + 128, b->p.y / 256 + 128, path, 5);
 }
 
 
