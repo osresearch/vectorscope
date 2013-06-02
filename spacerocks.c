@@ -14,6 +14,7 @@
 #define STARTING_AMMO 65535
 #define MAX_ROCKS	32
 #define MAX_BULLETS	4
+#define ROCK_VEL	64
 
 static int frame_num = 0;
 
@@ -211,6 +212,32 @@ ship_update(
 	point_update(&s->p);
 }
 
+static void
+rock_create(
+	rock_t * const rocks,
+	int16_t x,
+	int16_t y,
+	int16_t size
+)
+{
+	// find a free rock
+	for (uint8_t i = 0 ; i < MAX_ROCKS ; i++)
+	{
+		rock_t * const r = &rocks[i];
+		if (r->size != 0)
+			continue;
+
+fprintf(stderr, "%d: %d,%d\n", i, x, y);
+		r->size = size;
+		r->p.x = x;
+		r->p.y = y;
+		r->p.vx = rand() % ROCK_VEL;
+		r->p.vy = rand() % ROCK_VEL;
+		r->type = rand() % NUM_ROCK_TYPES;
+		return;
+	}
+}
+
 
 static void
 rocks_update(
@@ -238,10 +265,19 @@ rocks_update(
 			if (collide(&r->p, &b->p, r->size))
 			{
 				fprintf(stderr, "rock %d is dead\n", i);
+
+				uint16_t new_size = r->size / 2;
+				if (new_size > 256)
+				{
+					rock_create(rocks, r->p.x, r->p.y, new_size);
+					rock_create(rocks, r->p.x, r->p.y, new_size);
+					rock_create(rocks, r->p.x, r->p.y, new_size);
+				}
+
 				r->size = 0;
 				b->age = 0;
 				rock_dead = 1;
-				// \todo split into mulitple rocks
+
 				break;
 			}
 		}
@@ -316,6 +352,7 @@ bullets_init(
 }
 
 
+
 static void
 rocks_init(
 	rock_t * const rocks,
@@ -325,18 +362,16 @@ rocks_init(
 	for (uint8_t i = 0 ; i < MAX_ROCKS ; i++)
 	{
 		rock_t * const r = &rocks[i];
-		if (i > num)
-		{
-			// empty slot
-			r->size = 0;
-			continue;
-		}
+		r->size = 0;
+	}
 
-#define MIN_RADIUS 1024
-
+	for (uint8_t i = 0 ; i < num ; i++)
+	{
 		// Make sure that there is space around the center
+#define MIN_RADIUS 1024
 		int16_t x = rand();
 		int16_t y = rand();
+		uint16_t size = (rand() % 32) * 256 + 512;
 		if (0 <= x)
 			x += MIN_RADIUS;
 		else
@@ -345,13 +380,8 @@ rocks_init(
 			y += MIN_RADIUS;
 		else
 			y -= MIN_RADIUS;
-			
-		r->p.x = x;
-		r->p.y = y;
-		r->p.vx = rand() % 64;
-		r->p.vy = rand() % 64;
-		r->type = rand() % NUM_ROCK_TYPES;
-		r->size = (rand() % 32) * 256 + 512;
+
+		rock_create(rocks, x, y, size);
 
 	}
 }
