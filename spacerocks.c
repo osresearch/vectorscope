@@ -14,6 +14,7 @@
 #define MAX_ROCKS	32
 #define MAX_BULLETS	4
 
+static int frame_num = 0;
 
 
 typedef struct
@@ -44,7 +45,7 @@ typedef struct
 typedef struct
 {
 	point_t p;
-	uint8_t size;
+	uint16_t size;
 } rock_t;
 
 
@@ -224,11 +225,11 @@ ship_init(
 	s->p.y = 0;
 	s->p.vx = 0;
 	s->p.vy = 0;
-	s->angle = 0;
+	s->angle = rand();
 	s->dead = 0;
 	s->fuel = STARTING_FUEL;
-	s->ax = sin_lookup(s->angle);
-	s->ay = cos_lookup(s->angle);
+	s->ax = cos_lookup(s->angle);
+	s->ay = sin_lookup(s->angle);
 }
 
 
@@ -261,14 +262,13 @@ rocks_init(
 			continue;
 		}
 
-		r->size = 64;
+		r->size = (rand() % 32) * 256 + 512;
 
 #define MIN_RADIUS 1024
 
 		// Make sure that there is space around the center
 		int16_t x = rand();
 		int16_t y = rand();
-printf("x,y=%d,%d\n", x, y);
 		if (0 <= x)
 			x += MIN_RADIUS;
 		else
@@ -305,7 +305,7 @@ game_update(
 	uint8_t fire
 )
 {
-	printf("rot=%d thrust=%d fire=%d\n", rot, thrust, fire);
+	//printf("rot=%d thrust=%d fire=%d\n", rot, thrust, fire);
 
 	// Update our position before we fire the gun
 	ship_update(&g->s, rot, thrust);
@@ -319,20 +319,121 @@ game_update(
 	// If we hit something, start over
 	if (g->s.dead)
 	{
-		printf("game over\n");
+		fprintf(stderr, "game over\n");
 		game_init(g);
+	}
+}
+
+
+static void
+draw_path(
+	uint8_t x,
+	uint8_t y,
+	const int8_t * const p,
+	uint8_t n
+)
+{
+	for (uint8_t i = 0 ; i < n ; i++)
+		printf("%d %d %d\n", x + p[2*i+0], y + p[2*i+1], frame_num);
+	printf("\n");
+}
+
+
+#define ROTATE(x,y) \
+	((x) * s->ay + (y) * s->ax) / 128, \
+	((y) * s->ay - (x) * s->ax) / 128 \
+
+/** Generate the ship vectors, rotated by the current angle.
+ * The ship_update_rot() has cached the sin/cos value for us.
+ */
+static void
+draw_ship(
+	const ship_t * const s
+)
+{
+	int8_t path[] = {
+		ROTATE(0,0),
+		ROTATE(-4, -4),
+		ROTATE(0,8),
+		ROTATE(+4,-4),
+		ROTATE(0,0),
+	};
+
+	draw_path(s->p.x / 256 + 128, s->p.y / 256 + 128, path, 5);
+}
+
+
+/** Draw the bullets lined in the direction of travel */
+static void
+draw_bullet(
+	const bullet_t * const b
+)
+{
+	int8_t path[] = {
+		0, 0,
+		b->p.vx, b->p.vy,
+	};
+
+	draw_path(b->p.x / 256 + 128, b->p.y / 256 + 128, path, 2);
+}
+
+
+static void
+draw_rock(
+	const rock_t * const r
+)
+{
+	//printf("rock %d,%d size %d\n", r->p.x/256+128, r->p.y/256+128, r->size/256);
+
+	const int8_t s = r->size / 256;
+	int8_t path[] = {
+		-s, -s,
+		-s, +s,
+		+s, +s,
+		+s, -s,
+		-s, -s,
+	};
+
+	draw_path(r->p.x / 256 + 128, r->p.y / 256 + 128, path, 5);
+}
+
+
+static void
+game_vectors(
+	const game_t * const g
+)
+{
+	draw_ship(&g->s);
+
+	for (uint8_t i = 0 ; i < MAX_ROCKS ; i++)
+	{
+		const rock_t * const r = &g->r[i];
+		if (r->size == 0)
+			continue;
+		draw_rock(r);
+	}
+
+	for (uint8_t i = 0 ; i < MAX_BULLETS ; i++)
+	{
+		const bullet_t * const b = &g->b[i];
+		if (b->age == 0)
+			continue;
+		draw_bullet(b);
 	}
 }
 
 
 int main(void)
 {
+	srand(getpid());
+
 	game_t g;
 
 	game_init(&g);
 
 	while (1)
 	{
+#if 0
 		printf("---\nS: %+6d,%+6d %+6d,%+6d %d\n", g.s.p.x/256, g.s.p.y/256, g.s.p.vx, g.s.p.vy, g.s.angle);
 
 		for (uint8_t i = 0 ; i < MAX_ROCKS ; i++)
@@ -342,11 +443,22 @@ int main(void)
 				continue;
 			printf("%d: %+6d,%+6d %+6d,%+6d\n", i, r->p.x/256, r->p.y/256, r->p.vx, r->p.vy);
 		}
+#else
+		game_vectors(&g);
+		frame_num++;
+#endif
 
 		int c;
 
-		while ((c = getchar()) == '\n')
-			;
+		while (1)
+		{
+			c = getchar();
+			if (c == '\n')
+				continue;
+			if (c == -1)
+				return 0;
+			break;
+		}
 
 		game_update(
 			&g,
