@@ -45,8 +45,57 @@ typedef struct
 typedef struct
 {
 	point_t p;
+	uint8_t type;
 	uint16_t size;
 } rock_t;
+
+
+/** There are various types of rocks */
+static const int8_t rock_paths[][8*2] = {
+	{
+		-4, -2,
+		-4, +2,
+		-2, +4,
+		 0, +2,
+		+2, +4,
+		+4, -2,
+		 0, -4,
+		-4, -2,
+	},
+	{
+		-4, -2,
+		-3,  0,
+		-4, +2,
+		-2, +4,
+		+4, +2,
+		+2, +1,
+		+4, -3,
+		-4, -2,
+	},
+	{
+		-2, -4,
+		-4, -1,
+		-3, +4,
+		+2, +4,
+		+4, +1,
+		+3, -4,
+		 0, -1,
+		-2, -4,
+	},
+	{
+		-4, -2,
+		-4, +2,
+		-2, +4,
+		+2, +4,
+		+4, +2,
+		+4, -2,
+		+2, -4,
+		-2, -4,
+	},
+};
+
+
+#define NUM_ROCK_TYPES (sizeof(rock_paths) / sizeof(*rock_paths))
 
 
 typedef struct
@@ -262,8 +311,6 @@ rocks_init(
 			continue;
 		}
 
-		r->size = (rand() % 32) * 256 + 512;
-
 #define MIN_RADIUS 1024
 
 		// Make sure that there is space around the center
@@ -282,6 +329,9 @@ rocks_init(
 		r->p.y = y;
 		r->p.vx = rand() % 64;
 		r->p.vy = rand() % 64;
+		r->type = rand() % NUM_ROCK_TYPES;
+		r->size = (rand() % 32) * 256 + 512;
+
 	}
 }
 
@@ -378,6 +428,7 @@ draw_bullet(
 }
 
 
+
 static void
 draw_rock(
 	const rock_t * const r
@@ -386,15 +437,12 @@ draw_rock(
 	//printf("rock %d,%d size %d\n", r->p.x/256+128, r->p.y/256+128, r->size/256);
 
 	const int8_t s = r->size / 256;
-	int8_t path[] = {
-		-s, -s,
-		-s, +s,
-		+s, +s,
-		+s, -s,
-		-s, -s,
-	};
+	const int8_t * const rp = rock_paths[r->type];
+	int8_t path[8*2];
+	for (uint8_t i = 0 ; i < 16 ; i++)
+		path[i] = (rp[i] * s) / 4;
 
-	draw_path(r->p.x / 256 + 128, r->p.y / 256 + 128, path, 5);
+	draw_path(r->p.x / 256 + 128, r->p.y / 256 + 128, path, 8);
 }
 
 
