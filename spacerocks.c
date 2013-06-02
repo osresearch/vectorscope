@@ -305,6 +305,8 @@ game_update(
 	uint8_t fire
 )
 {
+	printf("rot=%d thrust=%d fire=%d\n", rot, thrust, fire);
+
 	// Update our position before we fire the gun
 	ship_update(&g->s, rot, thrust);
 
@@ -331,16 +333,26 @@ int main(void)
 
 	while (1)
 	{
-		printf("---\nS: %+6d,%+6d %+6d,%+6d\n", g.s.p.x, g.s.p.y, g.s.p.vx, g.s.p.vy);
+		printf("---\nS: %+6d,%+6d %+6d,%+6d %d\n", g.s.p.x/256, g.s.p.y/256, g.s.p.vx, g.s.p.vy, g.s.angle);
 
 		for (uint8_t i = 0 ; i < MAX_ROCKS ; i++)
 		{
 			const rock_t * const r = &g.r[i];
 			if (r->size == 0)
 				continue;
-			printf("%d: %+6d,%+6d %+6d,%+6d\n", i, r->p.x, r->p.y, r->p.vx, r->p.vy);
+			printf("%d: %+6d,%+6d %+6d,%+6d\n", i, r->p.x/256, r->p.y/256, r->p.vx, r->p.vy);
 		}
 
-		game_update(&g, 0, 0, 0);
+		int c;
+
+		while ((c = getchar()) == '\n')
+			;
+
+		game_update(
+			&g,
+			c == 'l' ? -17 : c == 'r' ? +17 : 0,
+			c == 't' ? 16 : 0,
+			c == 'f' ? 1 : 0
+		);
 	}
 }
