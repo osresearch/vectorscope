@@ -91,8 +91,8 @@ static const int8_t rock_paths[][8*2] = {
 		+2, +4,
 		+4, +2,
 		+4, -2,
-		+2, -4,
-		-2, -4,
+		+1, -4,
+		-4, -2,
 	},
 };
 
@@ -233,7 +233,7 @@ fprintf(stderr, "%d: %d,%d\n", i, x, y);
 		r->p.y = y;
 		r->p.vx = rand() % ROCK_VEL;
 		r->p.vy = rand() % ROCK_VEL;
-		r->type = rand() % NUM_ROCK_TYPES;
+		r->type = rand() % (NUM_ROCK_TYPES * 8);
 		return;
 	}
 }
@@ -492,10 +492,19 @@ draw_rock(
 	//printf("rock %d,%d size %d\n", r->p.x/256+128, r->p.y/256+128, r->size/256);
 
 	const int8_t s = r->size / 256;
-	const int8_t * const rp = rock_paths[r->type];
+	const uint8_t swap_xy = r->type & 1;
+	const uint8_t flip_x = r->type & 2;
+	const uint8_t flip_y = r->type & 4;
+	const int8_t * const rp = rock_paths[r->type >> 3];
+
 	int8_t path[8*2];
-	for (uint8_t i = 0 ; i < 16 ; i++)
-		path[i] = (rp[i] * s) / 4;
+	for (uint8_t i = 0 ; i < 8 ; i++)
+	{
+		int8_t x = (rp[2*i +  swap_xy] * s) / 4;
+		int8_t y = (rp[2*i + !swap_xy] * s) / 4;
+		path[2*i+0] = flip_x ? -x : x;
+		path[2*i+1] = flip_y ? -y : y;
+	}
 
 	draw_path(r->p.x / 256 + 128, r->p.y / 256 + 128, path, 8);
 }
