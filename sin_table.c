@@ -5,9 +5,10 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "memspaces.h"
 
 
-static const uint8_t sin_table[] = {
+static const uint8_t PROGMEM sin_table[] = {
 	0,
 	25,
 	50,
@@ -55,8 +56,8 @@ sin_lookup(
 		sign = -1;
 	}
 
-	int16_t s1 = sin_table[(theta >> 2) + 0];
-	int16_t s2 = sin_table[(theta >> 2) + 1];
+	int16_t s1 = pgm_read_byte(&sin_table[(theta >> 2) + 0]);
+	int16_t s2 = pgm_read_byte(&sin_table[(theta >> 2) + 1]);
 	int8_t result = (s1 + ((s2 - s1) * (theta & 0x3)) / 4) / 2;
 
 	if (sign == -1)
