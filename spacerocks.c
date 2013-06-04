@@ -15,6 +15,7 @@
 #define MAX_ROCKS	32
 #define MAX_BULLETS	4
 #define ROCK_VEL	64
+#define MIN_RADIUS 	10000
 
 static int frame_num = 0;
 
@@ -227,7 +228,6 @@ rock_create(
 		if (r->size != 0)
 			continue;
 
-fprintf(stderr, "%d: %d,%d\n", i, x, y);
 		r->size = size;
 		r->p.x = x;
 		r->p.y = y;
@@ -368,7 +368,6 @@ rocks_init(
 	for (uint8_t i = 0 ; i < num ; i++)
 	{
 		// Make sure that there is space around the center
-#define MIN_RADIUS 1024
 		int16_t x = rand();
 		int16_t y = rand();
 		uint16_t size = (rand() % 32) * 256 + 512;
@@ -435,7 +434,12 @@ draw_path(
 )
 {
 	for (uint8_t i = 0 ; i < n ; i++)
-		printf("%d %d %d\n", x + p[2*i+0], y + p[2*i+1], frame_num);
+	{
+		uint8_t px = x + p[2*i+0];
+		uint8_t py = y + p[2*i+1];
+		printf("%d %d %d\n", px, py, frame_num);
+	}
+
 	printf("\n");
 }
 
