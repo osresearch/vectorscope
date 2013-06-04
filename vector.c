@@ -28,6 +28,11 @@ moveto(
 )
 {
 #ifdef CONFIG_SLOW_SCOPE
+	// try to lessen the hotspot at a point if we are drawing
+	// a continuous path.
+	if (PORTB == x && PORTD == y)
+		return;
+
 	int first_dx = PORTB - x;
 	int first_dy = PORTD - y;
 	if (first_dx < 0)
@@ -40,10 +45,8 @@ moveto(
 	PORTD = y;
 
 #ifdef CONFIG_SLOW_SCOPE
-	// Allow the scope to reach this point, if we aren't
-	// already at the correct point
-	if (first_dx != 0 || first_dy != 0)
-		_delay_us((first_dx + first_dy) / 4);
+	// Allow the scope to reach this point
+	_delay_us((first_dx + first_dy) / 4);
 #endif
 }
 
