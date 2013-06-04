@@ -15,19 +15,22 @@
 #include <avr/io.h>
 #include "vector.h"
 #include "bits.h"
+#include "usb_serial.h"
 
 static inline uint16_t
 fastrand(void)
 {
-	return TCNT1 ^ (TCNT1 << 1);
+	uint16_t r = rand();
+	r ^= rand() << 1;
+	return r;
 }
 #endif
 
 #define STARTING_FUEL 65535
 #define STARTING_AMMO 65535
-#define MAX_ROCKS	32
+#define MAX_ROCKS	16
 #define MAX_BULLETS	4
-#define ROCK_VEL	64
+#define ROCK_VEL	128
 #define MIN_RADIUS 	10000
 
 
@@ -307,6 +310,7 @@ bullets_update(
 		bullet_t * const b = &bullets[i];
 		if (b->age != 0)
 		{
+			b->age--;
 			point_update(&b->p);
 		} else
 		if (fire)
@@ -399,7 +403,7 @@ game_init(
 {
 	ship_init(&g->s);
 	bullets_init(g->b);
-	rocks_init(g->r, 8);
+	rocks_init(g->r, 5);
 }
 
 
@@ -459,7 +463,6 @@ draw_path(
 	uint8_t n
 )
 {
-#ifdef __i386__
 	int16_t ox = x + p[0];
 	int16_t oy = y + p[1];
 	for (uint8_t i = 1 ; i < n ; i++)
@@ -473,27 +476,18 @@ draw_path(
 		uint8_t oy8 = oy;
 		uint8_t px8 = px;
 		uint8_t py8 = py;
-		ox = px;
-		oy = py;
 
 		if (do_line)
+		{
+#ifdef __i386__
 			printf("%d %d\n%d %d\n\n", ox8, oy8, px8, py8);
-	}
-
-	printf("\n");
 #else
-	uint8_t ox = x + p[0];
-	uint8_t oy = y + p[1];
-	for (uint8_t i = 1 ; i < n ; i++)
-	{
-		const uint8_t px = x + p[2*i+0];
-		const uint8_t py = y + p[2*i+1];
-
-		line(ox, oy, px, py);
+			line(ox8, oy8, px8, py8);
+#endif
+		}
 		ox = px;
 		oy = py;
 	}
-#endif
 }
 
 
@@ -511,9 +505,9 @@ draw_ship(
 {
 	int8_t path[] = {
 		ROTATE(0,0),
-		ROTATE(-4, -4),
-		ROTATE(0,8),
-		ROTATE(+4,-4),
+		ROTATE(-5, -5),
+		ROTATE(0,10),
+		ROTATE(+5,-5),
 		ROTATE(0,0),
 	};
 
@@ -662,6 +656,7 @@ int main(void)
 #define CPU_PRESCALE(n) (CLKPR = 0x80, CLKPR = (n))
 	CPU_PRESCALE(0);
 
+	usb_init();
 	game_init(&g);
 
 #define BUTTON_L	0xF0
@@ -678,30 +673,47 @@ int main(void)
 	ddr(BUTTON_T, 1);
 	out(BUTTON_T, 1);
 
+	DDRB = 0xFF;
+	DDRD = 0xFF;
+
 	while (1)
 	{
+		//line_horiz(0,0, 250);
+		//line_vert(0,0, 250);
 		game_vectors(&g);
 
-		draw_char_small( 0, 240, 'F');
-		draw_char_small(20, 240, hexdigit(g.s.fuel >> 12));
-		draw_char_small(40, 240, hexdigit(g.s.fuel >>  8));
-		draw_char_small(60, 240, hexdigit(g.s.fuel >>  4));
-		draw_char_small(80, 240, hexdigit(g.s.fuel >>  0));
+		draw_char_small( 0, 230, 'F');
+		draw_char_small(20, 230, hexdigit(g.s.fuel >> 12));
+		draw_char_small(40, 230, hexdigit(g.s.fuel >>  8));
+		draw_char_small(60, 230, hexdigit(g.s.fuel >>  4));
+		draw_char_small(80, 230, hexdigit(g.s.fuel >>  0));
 
-		draw_char_small( 0, 220, 'A');
-		draw_char_small(20, 220, hexdigit(g.s.ammo >> 12));
-		draw_char_small(40, 220, hexdigit(g.s.ammo >>  8));
-		draw_char_small(60, 220, hexdigit(g.s.ammo >>  4));
-		draw_char_small(80, 220, hexdigit(g.s.ammo >>  0));
+		draw_char_small( 0, 200, 'A');
+		draw_char_small(20, 200, hexdigit(g.s.ammo >> 12));
+		draw_char_small(40, 200, hexdigit(g.s.ammo >>  8));
+		draw_char_small(60, 200, hexdigit(g.s.ammo >>  4));
+		draw_char_small(80, 200, hexdigit(g.s.ammo >>  0));
 
 /*
 		if (in(BUTTON_L) && in(button_R))
 			ship_hyperspace(&g.s);
 */
 
+#if 0
 		int8_t rot = in(BUTTON_L) ? -17 : in(BUTTON_R) ? 17 : 0;
 		uint8_t thrust = in(BUTTON_T) ? 16 : 0;
 		uint8_t fire = in(BUTTON_F);
+#else
+		int c = -1;
+
+		if (usb_configured() && usb_serial_get_control() & USB_SERIAL_DTR)
+			c = usb_serial_getchar();
+
+	
+		int8_t rot = c == 'l' ? -17 : c == 'r' ? +17 : 0;
+		int8_t thrust = c == 't' ? 16 : 0;
+		int8_t fire = c == 'f' ? 1 : 0;
+#endif
 
 		game_update(
 			&g,
