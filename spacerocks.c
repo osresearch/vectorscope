@@ -29,8 +29,6 @@ fastrand(void)
 #define ROCK_VEL	64
 #define MIN_RADIUS 	10000
 
-static int frame_num = 0;
-
 
 typedef struct
 {
@@ -434,6 +432,24 @@ game_update(
 }
 
 
+static inline uint8_t
+same_quad(
+	int16_t p1,
+	int16_t p2
+)
+{
+	if (p1 < 0)
+		return p2 < 0;
+	if (p1 > 255)
+		return p2 > 255;
+	if (p2 < 0)
+		return 0;
+	if (p2 > 255)
+		return 0;
+	return 1;
+}
+
+
 static void
 draw_path(
 	uint8_t x,
@@ -443,11 +459,24 @@ draw_path(
 )
 {
 #ifdef __i386__
-	for (uint8_t i = 0 ; i < n ; i++)
+	int16_t ox = x + p[0];
+	int16_t oy = y + p[1];
+	for (uint8_t i = 1 ; i < n ; i++)
 	{
-		uint8_t px = x + p[2*i+0];
-		uint8_t py = y + p[2*i+1];
-		printf("%d %d %d\n", px, py, frame_num);
+		int16_t px = x + p[2*i+0];
+		int16_t py = y + p[2*i+1];
+
+		uint8_t do_line = same_quad(px, ox) && same_quad(py, oy);
+
+		uint8_t ox8 = ox;
+		uint8_t oy8 = oy;
+		uint8_t px8 = px;
+		uint8_t py8 = py;
+		ox = px;
+		oy = py;
+
+		if (do_line)
+			printf("%d %d\n%d %d\n\n", ox8, oy8, px8, py8);
 	}
 
 	printf("\n");
@@ -565,7 +594,7 @@ game_vectors(
 #ifdef __i386__
 int main(void)
 {
-	srand(getpid());
+	srand48(getpid());
 
 	game_t g;
 
@@ -585,7 +614,6 @@ int main(void)
 		}
 #else
 		game_vectors(&g);
-		frame_num++;
 #endif
 
 		int c;
