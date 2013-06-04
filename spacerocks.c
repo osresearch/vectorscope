@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 #include "sin_table.h"
+#include "memspaces.h"
 
 #ifdef __i386__
 #define fastrand() lrand48()
@@ -44,7 +45,7 @@ typedef struct
 	int16_t ax;
 	int16_t ay;
 	uint16_t fuel;
-	uint16_t shots;
+	uint16_t ammo;
 	uint8_t angle;
 	uint8_t dead;
 } ship_t;
@@ -64,7 +65,7 @@ typedef struct
 
 
 /** There are various types of rocks */
-static const int8_t rock_paths[][8*2] = {
+static const int8_t PROGMEM rock_paths[][8*2] = {
 	{
 		-4, -2,
 		-4, +2,
@@ -187,7 +188,7 @@ ship_fire(
 	bullet_t * const b
 )
 {
-	if (s->shots == 0)
+	if (s->ammo == 0)
 		return;
 
 #define BULLET_RANGE 255
@@ -203,7 +204,7 @@ ship_fire(
 	fprintf(stderr, "fire: vx=%d vy=%d\n", b->p.vx, b->p.vy);
 #endif
 
-	s->shots--;
+	s->ammo--;
 }
 
 
@@ -338,7 +339,7 @@ ship_init(
 	s->angle = fastrand();
 	s->dead = 0;
 	s->fuel = STARTING_FUEL;
-	s->shots = STARTING_AMMO;
+	s->ammo = STARTING_AMMO;
 	s->ax = cos_lookup(s->angle);
 	s->ay = sin_lookup(s->angle);
 }
@@ -556,8 +557,10 @@ draw_rock(
 	int8_t path[8*2];
 	for (uint8_t i = 0 ; i < 8 ; i++)
 	{
-		int8_t x = (rp[2*i +  swap_xy] * s) / 4;
-		int8_t y = (rp[2*i + !swap_xy] * s) / 4;
+		int8_t rx = pgm_read_byte(&rp[2*i +  swap_xy]);
+		int8_t ry = pgm_read_byte(&rp[2*i + !swap_xy]);
+		int8_t x = (rx * s) / 4;
+		int8_t y = (ry * s) / 4;
 		path[2*i+0] = flip_x ? -x : x;
 		path[2*i+1] = flip_y ? -y : y;
 	}
@@ -639,6 +642,18 @@ int main(void)
 
 #else
 
+static inline uint8_t
+hexdigit(
+	uint8_t x
+)
+{
+	x &= 0xF;
+	if (x < 0xA)
+		return x + '0' - 0x0;
+	else
+		return x + 'A' - 0xA;
+}
+
 static game_t g;
 
 int main(void)
@@ -649,13 +664,44 @@ int main(void)
 
 	game_init(&g);
 
+#define BUTTON_L	0xF0
+#define BUTTON_R	0xF1
+#define BUTTON_F	0xF2
+#define BUTTON_T	0xF3
+
+	ddr(BUTTON_L, 1);
+	out(BUTTON_L, 1);
+	ddr(BUTTON_R, 1);
+	out(BUTTON_R, 1);
+	ddr(BUTTON_F, 1);
+	out(BUTTON_F, 1);
+	ddr(BUTTON_T, 1);
+	out(BUTTON_T, 1);
+
 	while (1)
 	{
 		game_vectors(&g);
 
-		int8_t rot = ADC - 128;
-		uint8_t thrust = ADC;
-		uint8_t fire = in(0xB7);
+		draw_char_small( 0, 240, 'F');
+		draw_char_small(20, 240, hexdigit(g.s.fuel >> 12));
+		draw_char_small(40, 240, hexdigit(g.s.fuel >>  8));
+		draw_char_small(60, 240, hexdigit(g.s.fuel >>  4));
+		draw_char_small(80, 240, hexdigit(g.s.fuel >>  0));
+
+		draw_char_small( 0, 220, 'A');
+		draw_char_small(20, 220, hexdigit(g.s.ammo >> 12));
+		draw_char_small(40, 220, hexdigit(g.s.ammo >>  8));
+		draw_char_small(60, 220, hexdigit(g.s.ammo >>  4));
+		draw_char_small(80, 220, hexdigit(g.s.ammo >>  0));
+
+/*
+		if (in(BUTTON_L) && in(button_R))
+			ship_hyperspace(&g.s);
+*/
+
+		int8_t rot = in(BUTTON_L) ? -17 : in(BUTTON_R) ? 17 : 0;
+		uint8_t thrust = in(BUTTON_T) ? 16 : 0;
+		uint8_t fire = in(BUTTON_F);
 
 		game_update(
 			&g,
