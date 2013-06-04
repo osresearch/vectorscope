@@ -8,7 +8,19 @@
 #include <inttypes.h>
 #include "sin_table.h"
 
-#define rand() lrand48()
+#ifdef __i386__
+#define fastrand() lrand48()
+#else
+#include <avr/io.h>
+#include "vector.h"
+#include "bits.h"
+
+static inline uint16_t
+fastrand(void)
+{
+	return TCNT1 ^ (TCNT1 << 1);
+}
+#endif
 
 #define STARTING_FUEL 65535
 #define STARTING_AMMO 65535
@@ -129,12 +141,6 @@ collide(
 	int16_t dx = p->x - q->x;
 	int16_t dy = p->y - q->y;
 
-	if (0) fprintf(stderr, "%d,%d -> %d,%d => %d,%d\n",
-		p->x, p->y,
-		q->x, q->y,
-		dx, dy
-	);
-
 	if (-radius < dx && dx < radius
 	&&  -radius < dy && dy < radius)
 		return 1;
@@ -195,7 +201,9 @@ ship_fire(
 	b->p.vx = s->ax * BULLET_VEL + s->p.vx; // in the direction of the ship
 	b->p.vy = s->ay * BULLET_VEL + s->p.vy; // in the direction of the ship
 
+#ifdef __i386__
 	fprintf(stderr, "fire: vx=%d vy=%d\n", b->p.vx, b->p.vy);
+#endif
 
 	s->shots--;
 }
@@ -231,9 +239,9 @@ rock_create(
 		r->size = size;
 		r->p.x = x;
 		r->p.y = y;
-		r->p.vx = rand() % ROCK_VEL;
-		r->p.vy = rand() % ROCK_VEL;
-		r->type = rand() % (NUM_ROCK_TYPES * 8);
+		r->p.vx = fastrand() % ROCK_VEL;
+		r->p.vy = fastrand() % ROCK_VEL;
+		r->type = fastrand() % (NUM_ROCK_TYPES * 8);
 		return;
 	}
 }
@@ -256,7 +264,6 @@ rocks_update(
 		uint8_t rock_dead = 0;
 
 		// check for bullet collision
-//fprintf(stderr, "Bullet check\n");
 		for (uint8_t j = 0 ; j < MAX_BULLETS ; j++)
 		{
 			bullet_t * const b = &bullets[j];
@@ -264,8 +271,6 @@ rocks_update(
 				continue;
 			if (collide(&r->p, &b->p, r->size))
 			{
-				fprintf(stderr, "rock %d is dead\n", i);
-
 				uint16_t new_size = r->size / 2;
 				if (new_size > 256)
 				{
@@ -285,7 +290,6 @@ rocks_update(
 		if (rock_dead)
 			continue;
 
-//fprintf(stderr, "Ship check\n");
 		 if (collide(&r->p, &s->p, r->size))
 			s->dead = 1;
 	}
@@ -305,7 +309,6 @@ bullets_update(
 		if (b->age != 0)
 		{
 			point_update(&b->p);
-			fprintf(stderr, "%d,%d\n", b->p.x/256, b->p.y/256);
 		} else
 		if (fire)
 		{
@@ -316,7 +319,11 @@ bullets_update(
 	}
 
 	if (fire)
+	{
+#ifdef __i386__
 		fprintf(stderr, "no bullets\n");
+#endif
+	}
 }
 
 
@@ -330,7 +337,7 @@ ship_init(
 	s->p.y = 0;
 	s->p.vx = 0;
 	s->p.vy = 0;
-	s->angle = rand();
+	s->angle = fastrand();
 	s->dead = 0;
 	s->fuel = STARTING_FUEL;
 	s->shots = STARTING_AMMO;
@@ -368,9 +375,9 @@ rocks_init(
 	for (uint8_t i = 0 ; i < num ; i++)
 	{
 		// Make sure that there is space around the center
-		int16_t x = rand();
-		int16_t y = rand();
-		uint16_t size = (rand() % 32) * 256 + 512;
+		int16_t x = fastrand();
+		int16_t y = fastrand();
+		uint16_t size = (fastrand() % 32) * 256 + 512;
 		if (0 <= x)
 			x += MIN_RADIUS;
 		else
@@ -419,7 +426,9 @@ game_update(
 	// If we hit something, start over
 	if (g->s.dead)
 	{
+#ifdef __i386__
 		fprintf(stderr, "game over\n");
+#endif
 		game_init(g);
 	}
 }
@@ -433,6 +442,7 @@ draw_path(
 	uint8_t n
 )
 {
+#ifdef __i386__
 	for (uint8_t i = 0 ; i < n ; i++)
 	{
 		uint8_t px = x + p[2*i+0];
@@ -441,6 +451,19 @@ draw_path(
 	}
 
 	printf("\n");
+#else
+	uint8_t ox = x + p[0];
+	uint8_t oy = y + p[1];
+	for (uint8_t i = 1 ; i < n ; i++)
+	{
+		const uint8_t px = x + p[2*i+0];
+		const uint8_t py = y + p[2*i+1];
+
+		line(ox, oy, px, py);
+		ox = px;
+		oy = py;
+	}
+#endif
 }
 
 
@@ -539,6 +562,7 @@ game_vectors(
 }
 
 
+#ifdef __i386__
 int main(void)
 {
 	srand(getpid());
@@ -584,3 +608,33 @@ int main(void)
 		);
 	}
 }
+
+#else
+
+static game_t g;
+
+int main(void)
+{
+	// set for 16 MHz clock
+#define CPU_PRESCALE(n) (CLKPR = 0x80, CLKPR = (n))
+	CPU_PRESCALE(0);
+
+	game_init(&g);
+
+	while (1)
+	{
+		game_vectors(&g);
+
+		int8_t rot = ADC - 128;
+		uint8_t thrust = ADC;
+		uint8_t fire = in(0xB7);
+
+		game_update(
+			&g,
+			rot,
+			thrust,
+			fire
+		);
+	}
+}
+#endif
