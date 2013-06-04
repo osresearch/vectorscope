@@ -272,12 +272,14 @@ scaling(
 )
 {
 	if (scale == 0)
-		return (d * 2) / 3;
+		return d / 4;
 	if (scale == 1)
-		return d;
+		return (d * 2) / 3;
 	if (scale == 2)
-		return (d * 3) / 2;
+		return d;
 	if (scale == 3)
+		return (d * 3) / 2;
+	if (scale == 4)
 		return d * 2;
 	return d;
 }
@@ -367,7 +369,7 @@ draw_char_big(
 	uint8_t c
 )
 {
-	return _draw_char(x, y, c, 2);
+	return _draw_char(x, y, c, 3);
 }
 
 
@@ -378,7 +380,7 @@ draw_char_med(
 	uint8_t c
 )
 {
-	return _draw_char(x, y, c, 1);
+	return _draw_char(x, y, c, 2);
 }
 
 uint8_t
@@ -388,7 +390,7 @@ draw_char_small(
 	uint8_t c
 )
 {
-	return _draw_char(x, y, c, 0);
+	return _draw_char(x, y, c, 1);
 }
 
 
