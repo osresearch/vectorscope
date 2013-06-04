@@ -106,14 +106,8 @@ int main(void)
 	// Disable the ADC
 	ADMUX = 0;
 
-	// initialize the USB, and then wait for the host
-	// to set configuration.  If the Teensy is powered
-	// without a PC connected to the USB port, this 
-	// will wait forever.
+	// initialize the USB
 	usb_init();
-	while (!usb_configured()) /* wait */ ;
-	_delay_ms(1000);
-
 	DDRB = 0xFF;
 	DDRD = 0xFF;
 	PORTB = 128;
@@ -126,10 +120,16 @@ int main(void)
 	uint8_t size = 0;
 
 
-	// wait for the user to run their terminal emulator program
-	// which sets DTR to indicate it is ready to receive.
-	while (!(usb_serial_get_control() & USB_SERIAL_DTR))
+	// wait for the host to setup the USB port and for the user
+	// to run their terminal emulator program which sets DTR to
+	// indicate it is ready to receive.  Otherwise display the
+	// attract screen
+	while (1)
 	{
+		if (usb_configured()
+		&& usb_serial_get_control() & USB_SERIAL_DTR)
+			break;
+
 		vector_rot_init(&rot, (theta++) / 4);
 
 		if (size >= 128)
