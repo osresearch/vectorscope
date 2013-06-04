@@ -40,8 +40,10 @@ moveto(
 	PORTD = y;
 
 #ifdef CONFIG_SLOW_SCOPE
-	// Allow the scope to reach this point
-	_delay_us((first_dx + first_dy) / 3);
+	// Allow the scope to reach this point, if we aren't
+	// already at the correct point
+	if (first_dx != 0 || first_dy != 0)
+		_delay_us((first_dx + first_dy) / 4);
 #endif
 }
 
