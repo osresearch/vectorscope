@@ -27,7 +27,7 @@ fastrand(void)
 #endif
 
 #define STARTING_FUEL 65535
-#define STARTING_AMMO 65535
+#define STARTING_AMMO 200
 #define MAX_ROCKS	16
 #define MAX_BULLETS	4
 #define ROCK_VEL	128
@@ -648,6 +648,79 @@ hexdigit(
 		return x + 'A' - 0xA;
 }
 
+
+/**
+ * Enable ADC and select input ADC0 / F0
+ * Select high-speed mode, left aligned
+ * Use clock divisor of 2
+ * System clock is 16 MHz on teensy, 8 MHz on tiny,
+ * conversions take 13 ticks, so divisor == 128 (1,1,1) should
+ * give 9.6 KHz of samples.
+ */
+static uint8_t adc_input;
+static uint16_t adc_values[4];
+
+static void
+adc_init(void)
+{
+	ADMUX = adc_input
+		| (0 << REFS1)
+		| (1 << REFS0)
+		;
+
+	ADCSRA = 0
+		| (1 << ADEN) // enable ADC
+		| (0 << ADSC) // don't start yet
+		| (0 << ADIE) // don't enable the interrupts
+		| (0 << ADPS2)
+		| (1 << ADPS1)
+		| (1 << ADPS0)
+		;
+
+	ADCSRB = 0
+		| (1 << ADHSM) // enable highspeed mode
+		;
+
+	DDRF = 0;
+	PORTF = 0;
+	sbi(DIDR0, ADC0D);
+	sbi(DIDR0, ADC1D);
+
+	// Start the first conversion!
+	sbi(ADCSRA, ADSC);
+}
+
+
+static void
+adc_read(void)
+{
+	if (bit_is_set(ADCSRA, ADSC))
+		return;
+
+	adc_values[adc_input] = ADC;
+	adc_input = (adc_input + 1) % 2;
+
+	// Configure for the next input
+	ADMUX = (ADMUX & ~0x1F) | adc_input;
+
+	// Start the next conversion
+	sbi(ADCSRA, ADSC);
+}
+
+
+static void
+draw_hex(
+	uint8_t x,
+	uint8_t y,
+	uint16_t v
+)
+{
+	draw_char_small(x+0, y, hexdigit(v >> 8));
+	draw_char_small(x+20, y, hexdigit(v >> 4));
+	draw_char_small(x+40, y, hexdigit(v >> 0));
+}
+
+
 static game_t g;
 
 int main(void)
@@ -657,42 +730,32 @@ int main(void)
 	CPU_PRESCALE(0);
 
 	usb_init();
+	adc_init();
 	game_init(&g);
-
-#define BUTTON_L	0xF0
-#define BUTTON_R	0xF1
-#define BUTTON_F	0xF2
-#define BUTTON_T	0xF3
-
-	ddr(BUTTON_L, 1);
-	out(BUTTON_L, 1);
-	ddr(BUTTON_R, 1);
-	out(BUTTON_R, 1);
-	ddr(BUTTON_F, 1);
-	out(BUTTON_F, 1);
-	ddr(BUTTON_T, 1);
-	out(BUTTON_T, 1);
 
 	DDRB = 0xFF;
 	DDRD = 0xFF;
 
 	while (1)
 	{
+		adc_read();
+
 		//line_horiz(0,0, 250);
 		//line_vert(0,0, 250);
 		game_vectors(&g);
 
 		draw_char_small( 0, 230, 'F');
-		draw_char_small(20, 230, hexdigit(g.s.fuel >> 12));
-		draw_char_small(40, 230, hexdigit(g.s.fuel >>  8));
-		draw_char_small(60, 230, hexdigit(g.s.fuel >>  4));
-		draw_char_small(80, 230, hexdigit(g.s.fuel >>  0));
+		draw_char_small(20, 230, '=');
+		draw_hex(40, 230, g.s.fuel >> 4);
 
 		draw_char_small( 0, 200, 'A');
-		draw_char_small(20, 200, hexdigit(g.s.ammo >> 12));
-		draw_char_small(40, 200, hexdigit(g.s.ammo >>  8));
-		draw_char_small(60, 200, hexdigit(g.s.ammo >>  4));
-		draw_char_small(80, 200, hexdigit(g.s.ammo >>  0));
+		draw_char_small(20, 200, '=');
+		draw_hex(40, 200, g.s.ammo);
+
+		draw_hex(0, 100, adc_values[0]);
+		draw_hex(80, 100, adc_values[1]);
+		//draw_hex(0, 80, adc_values[2]);
+		//draw_hex(80, 80, adc_values[3]);
 
 /*
 		if (in(BUTTON_L) && in(button_R))
@@ -706,13 +769,12 @@ int main(void)
 #else
 		int c = -1;
 
-		if (usb_configured() && usb_serial_get_control() & USB_SERIAL_DTR)
-			c = usb_serial_getchar();
-
+		int8_t rot = (adc_values[0] >> 6) - (512 >> 6);
+		int8_t thrust = (adc_values[1] >> 2) - (512 >> 2);
+		if (thrust < 0)
+			thrust = 0;
 	
-		int8_t rot = c == 'l' ? -17 : c == 'r' ? +17 : 0;
-		int8_t thrust = c == 't' ? 16 : 0;
-		int8_t fire = c == 'f' ? 1 : 0;
+		int8_t fire = 0;
 #endif
 
 		game_update(
