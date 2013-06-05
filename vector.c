@@ -46,7 +46,7 @@ moveto(
 
 #ifdef CONFIG_SLOW_SCOPE
 	// Allow the scope to reach this point
-	_delay_us((first_dx + first_dy) / 4);
+	_delay_us((first_dx + first_dy) / 2);
 #endif
 }
 
