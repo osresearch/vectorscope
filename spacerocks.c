@@ -661,7 +661,7 @@ static uint8_t adc_input;
 static uint16_t adc_values[4];
 
 static void
-adc_init(void)
+joy_init(void)
 {
 	ADMUX = adc_input
 		| (0 << REFS1)
@@ -682,7 +682,9 @@ adc_init(void)
 		;
 
 	DDRF = 0;
-	PORTF = 0;
+	PORTF = 0x00;
+	sbi(PORTF, 4);
+	sbi(PORTF, 5);
 	sbi(DIDR0, ADC0D);
 	sbi(DIDR0, ADC1D);
 
@@ -730,15 +732,19 @@ int main(void)
 	CPU_PRESCALE(0);
 
 	usb_init();
-	adc_init();
+	joy_init();
 	game_init(&g);
 
 	DDRB = 0xFF;
 	DDRD = 0xFF;
 
+	uint8_t last_fire = 0;
+
 	while (1)
 	{
 		adc_read();
+		adc_values[2] = in(0xF4);
+		adc_values[3] = in(0xF5);
 
 		//line_horiz(0,0, 250);
 		//line_vert(0,0, 250);
@@ -754,19 +760,14 @@ int main(void)
 
 		draw_hex(0, 100, adc_values[0]);
 		draw_hex(80, 100, adc_values[1]);
-		//draw_hex(0, 80, adc_values[2]);
-		//draw_hex(80, 80, adc_values[3]);
+		draw_hex(0, 80, adc_values[2]);
+		draw_hex(80, 80, adc_values[3]);
 
 /*
 		if (in(BUTTON_L) && in(button_R))
 			ship_hyperspace(&g.s);
 */
 
-#if 0
-		int8_t rot = in(BUTTON_L) ? -17 : in(BUTTON_R) ? 17 : 0;
-		uint8_t thrust = in(BUTTON_T) ? 16 : 0;
-		uint8_t fire = in(BUTTON_F);
-#else
 		int c = -1;
 
 		int8_t rot = (adc_values[0] >> 6) - (512 >> 6);
@@ -774,15 +775,16 @@ int main(void)
 		if (thrust < 0)
 			thrust = 0;
 	
-		int8_t fire = 0;
-#endif
+		int8_t fire = adc_values[2] == 0;
 
 		game_update(
 			&g,
-			rot,
+			-rot,
 			thrust,
-			fire
+			last_fire ? 0 : fire
 		);
+
+		last_fire = fire;
 	}
 }
 #endif
