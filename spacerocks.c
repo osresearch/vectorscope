@@ -24,11 +24,25 @@ fastrand(void)
 	r ^= rand() << 1;
 	return r;
 }
+
+static inline uint8_t
+hexdigit(
+	uint8_t x
+)
+{
+	x &= 0xF;
+	if (x < 0xA)
+		return x + '0' - 0x0;
+	else
+		return x + 'A' - 0xA;
+}
+
+
 #endif
 
 #define STARTING_FUEL 65535
 #define STARTING_AMMO 200
-#define MAX_ROCKS	16
+#define MAX_ROCKS	8
 #define MAX_BULLETS	4
 #define ROCK_VEL	128
 #define MIN_RADIUS 	10000
@@ -223,7 +237,7 @@ ship_update(
 	point_update(&s->p);
 }
 
-static void
+static rock_t *
 rock_create(
 	rock_t * const rocks,
 	int16_t x,
@@ -244,8 +258,20 @@ rock_create(
 		r->p.vx = fastrand() % ROCK_VEL;
 		r->p.vy = fastrand() % ROCK_VEL;
 		r->type = fastrand() % (NUM_ROCK_TYPES * 8);
-		return;
+char buf[64];
+buf[0] = hexdigit(i);
+buf[1] = hexdigit(r->p.vx >> 12);
+buf[2] = hexdigit(r->p.vx >>  8);
+buf[3] = hexdigit(r->p.vx >>  4);
+buf[4] = hexdigit(r->p.vx >>  0);
+buf[5] = '\r';
+buf[6] = '\n';
+		if (usb_configured())
+			usb_serial_write(buf, 6);
+		return r;
 	}
+
+	return NULL;
 }
 
 
@@ -260,10 +286,9 @@ rocks_update(
 	{
 		rock_t * const r = &rocks[i];
 		if (r->size == 0)
-			break;
+			continue;
 
 		point_update(&r->p);
-		uint8_t rock_dead = 0;
 
 		// check for bullet collision
 		for (uint8_t j = 0 ; j < MAX_BULLETS ; j++)
@@ -274,7 +299,7 @@ rocks_update(
 			if (collide(&r->p, &b->p, r->size))
 			{
 				uint16_t new_size = r->size / 2;
-				if (new_size > 256)
+				if (new_size > 1024)
 				{
 					rock_create(rocks, r->p.x, r->p.y, new_size);
 					rock_create(rocks, r->p.x, r->p.y, new_size);
@@ -283,14 +308,11 @@ rocks_update(
 
 				r->size = 0;
 				b->age = 0;
-				rock_dead = 1;
 
-				break;
+				// stop checking everything
+				return;
 			}
 		}
-
-		if (rock_dead)
-			continue;
 
 		 if (collide(&r->p, &s->p, r->size))
 			s->dead = 1;
@@ -636,19 +658,6 @@ int main(void)
 
 #else
 
-static inline uint8_t
-hexdigit(
-	uint8_t x
-)
-{
-	x &= 0xF;
-	if (x < 0xA)
-		return x + '0' - 0x0;
-	else
-		return x + 'A' - 0xA;
-}
-
-
 /**
  * Enable ADC and select input ADC0 / F0
  * Select high-speed mode, left aligned
@@ -730,6 +739,7 @@ int main(void)
 	// set for 16 MHz clock
 #define CPU_PRESCALE(n) (CLKPR = 0x80, CLKPR = (n))
 	CPU_PRESCALE(0);
+	TCCR0B = 1;
 
 	usb_init();
 	joy_init();
@@ -770,9 +780,9 @@ int main(void)
 
 		int c = -1;
 
-		int8_t rot = (adc_values[0] >> 6) - (512 >> 6);
-		int8_t thrust = (adc_values[1] >> 2) - (512 >> 2);
-		if (thrust == -128)
+		int8_t rot = (adc_values[0] >> 7) - (512 >> 7);
+		int8_t thrust = (adc_values[1] >> 3) - (512 >> 3);
+		if (thrust == -64)
 			g.s.p.vx = g.s.p.vy = 0;
 		if (thrust < 0)
 			thrust = 0;
@@ -785,6 +795,29 @@ int main(void)
 			thrust,
 			last_fire ? 0 : fire
 		);
+
+		if (0) if (usb_configured())
+		{
+			char buf[64];
+			for (uint8_t i = 0 ; i < MAX_ROCKS ; i++)
+			{
+				rock_t * const r = &g.r[i];
+				if (r->size == 0)
+					continue;
+				buf[0] = hexdigit(i);
+				buf[1] = hexdigit(r->p.vx >> 12);
+				buf[2] = hexdigit(r->p.vx >>  8);
+				buf[3] = hexdigit(r->p.vx >>  4);
+				buf[4] = hexdigit(r->p.vx >>  0);
+				buf[5] = '\r';
+				buf[6] = '\n';
+				usb_serial_write(buf, 7);
+			}
+			buf[0] = '-';
+			buf[1] = '\r';
+			buf[2] = '\n';
+			usb_serial_write(buf, 3);
+		}
 
 		last_fire = fire;
 	}
