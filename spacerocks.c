@@ -194,7 +194,7 @@ ship_fire(
 	if (s->ammo == 0)
 		return;
 
-#define BULLET_RANGE 255
+#define BULLET_RANGE 32
 #define BULLET_VEL 8
 
 	b->age = BULLET_RANGE;
@@ -344,8 +344,8 @@ ship_init(
 	s->dead = 0;
 	s->fuel = STARTING_FUEL;
 	s->ammo = STARTING_AMMO;
-	s->ax = cos_lookup(s->angle);
-	s->ay = sin_lookup(s->angle);
+	s->ax = sin_lookup(s->angle);
+	s->ay = cos_lookup(s->angle);
 }
 
 
@@ -505,9 +505,9 @@ draw_ship(
 {
 	int8_t path[] = {
 		ROTATE(0,0),
-		ROTATE(-5, -5),
-		ROTATE(0,10),
-		ROTATE(+5,-5),
+		ROTATE(-6, -6),
+		ROTATE(0,12),
+		ROTATE(+6,-6),
 		ROTATE(0,0),
 	};
 
@@ -758,10 +758,10 @@ int main(void)
 		draw_char_small(20, 200, '=');
 		draw_hex(40, 200, g.s.ammo);
 
-		draw_hex(0, 100, adc_values[0]);
-		draw_hex(80, 100, adc_values[1]);
-		draw_hex(0, 80, adc_values[2]);
-		draw_hex(80, 80, adc_values[3]);
+		draw_hex(255-60, 30, adc_values[0]);
+		draw_hex(255-60, 10, adc_values[1]);
+		//draw_hex(0, 80, adc_values[2]);
+		//draw_hex(80, 80, adc_values[3]);
 
 /*
 		if (in(BUTTON_L) && in(button_R))
@@ -772,6 +772,8 @@ int main(void)
 
 		int8_t rot = (adc_values[0] >> 6) - (512 >> 6);
 		int8_t thrust = (adc_values[1] >> 2) - (512 >> 2);
+		if (thrust == -128)
+			g.s.p.vx = g.s.p.vy = 0;
 		if (thrust < 0)
 			thrust = 0;
 	
